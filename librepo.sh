@@ -4,7 +4,7 @@ DANGER_EXEC=
 MYEXEC=
 
 #set MYEXEC to echo for dry run
-#MYEXEC="echo [DryRun]"
+MYEXEC="echo [DryRun]"
 
 FN_LOG=/dev/stderr
 
@@ -26,7 +26,7 @@ gen_detect_url () {
 
     cat << EOF > "${PARAM_FN_AWK}"
 #!/usr/bin/awk
-# try to guess the linux distribution from download URL
+# split info from download URL
 # Copyright 2015 Yunhui Fu
 # License: GPL v3.0 or later
 
@@ -347,7 +347,7 @@ makepkg_tarpkg() {
         PREFIX="${pkgname}-$(pkgver)-$(uname -m)"
     fi
     echo "[DBG] PREFIX=${PREFIX}"
-    case ${DECLNXOUT_TOOL} in
+    case ${PKGEXT} in
     *.tar.xz)
         ${MYEXEC} XZ_OPT=-9 tar -Jcf "${DN_REPO_PKG}/../${PREFIX}.pkg.tar.xz" .
         ;;

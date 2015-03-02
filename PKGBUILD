@@ -36,9 +36,6 @@ CONFIG_KERNEL="rpi2-3.19.config"
 PATCH_CONFIG_KERNEL="rpi-kernel-config-3.19.patch"
 fi
 
-# the image container size
-IMGCONTAINER_SIZE=3000 # Size of image in megabytes
-
 # Package installations for various sections.
 # This will build a minimal XFCE Kali system with the top 10 tools.
 # This is the section to edit if you would like to add more packages.
@@ -49,11 +46,14 @@ IMGCONTAINER_SIZE=3000 # Size of image in megabytes
 # image, keep that in mind.
 PACKAGES_ARM="abootimg cgpt fake-hwclock ntpdate vboot-utils vboot-kernel-utils uboot-mkimage"
 PACKAGES_BASE="kali-menu kali-defaults initramfs-tools sudo parted e2fsprogs usbutils"
-#PACKAGES_DESKTOP="xfce4 network-manager network-manager-gnome xserver-xorg-video-fbdev"
-PACKAGES_TOOLS="passing-the-hash winexe aircrack-ng hydra john sqlmap wireshark libnfc-bin mfoc nmap ethtool usbutils"
+PACKAGES_DESKTOP="xfce4 network-manager network-manager-gnome xserver-xorg-video-fbdev"
+PACKAGES_TOOLS="passing-the-hash winexe aircrack-ng hydra john sqlmap wireshark libnfc-bin mfoc nmap ethtool"
 PACKAGES_SERVICES="openssh-server apache2"
-#PACKAGES_EXTRAS="iceweasel wpasupplicant"
+PACKAGES_EXTRAS="iceweasel wpasupplicant"
 export PACKAGES="${PACKAGES_ARM} ${PACKAGES_BASE} ${PACKAGES_DESKTOP} ${PACKAGES_TOOLS} ${PACKAGES_SERVICES} ${PACKAGES_EXTRAS}"
+
+# the image container size
+IMGCONTAINER_SIZE=3000 # Size of image in megabytes
 
 # If you have your own preferred mirrors, set them here.
 # You may want to leave security.kali.org alone, but if you trust your local
@@ -102,50 +102,6 @@ pkgver() {
     local ver="$(git show | grep commit | awk '{print $2}'  )"
     #printf "r%s" "${ver//[[:alpha:]]}"
     echo ${ver:0:7}
-}
-
-prepare() {
-    # setup environments
-    MACHINE=${ARCHITECTURE}
-    ISCROSS=1
-    HW=$(uname -m)
-    case ${HW} in
-    armv5el)
-        # Pi 1
-        ISCROSS=0
-        MACHINE=armel
-        ;;
-    armv7l)
-        # Pi 2
-        ISCROSS=0
-        MACHINE=armhf
-        ;;
-    x86_64)
-        ;;
-    esac
-    export MACHINEARCH="${MACHINE}"
-
-    DN_ROOTFS_RPI2="${srcdir}/rootfs-rpi2-${MACHINEARCH}"
-    DN_BOOT="${DN_ROOTFS_RPI2}/boot"
-    DN_ROOTFS_DEBIAN="${srcdir}/rootfs-kali-${MACHINEARCH}"
-
-    rm -rf ${DN_BOOT}
-    rm -rf ${DN_ROOTFS_RPI2}
-    #rm -rf ${DN_ROOTFS_DEBIAN}
-    mkdir -p ${DN_BOOT}
-    mkdir -p ${DN_ROOTFS_RPI2}
-    mkdir -p ${DN_ROOTFS_DEBIAN}
-
-
-    # linux kernel for Raspberry Pi 2
-    cd "$srcdir/linux-raspberrypi-git"
-    git submodule init
-    git submodule update
-    patch -p1 --no-backup-if-mismatch < ${srcdir}/${PATCH_MAC80211}
-    touch .scmversion
-
-    cp ${srcdir}/${CONFIG_KERNEL} .config
-    patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
 }
 
 FORMAT_NAME='arm'
@@ -267,7 +223,7 @@ EOF
     echo "[DBG] debootstrap state 3"
     cat << EOF > /tmp/ths
 #!/bin/bash
-export PATH=/bin:/sbin:/usr/bin:/usr/sbin:
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:$PATH
 export DEBIAN_FRONTEND=noninteractive
 
 dpkg-divert --add --local --divert /usr/sbin/invoke-rc.d.chroot --rename /usr/sbin/invoke-rc.d
@@ -305,14 +261,14 @@ EOF
 
     cat << EOF > /tmp/cln
 #!/bin/bash
-export PATH=/bin:/sbin:/usr/bin:/usr/sbin:
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:$PATH
 export DEBIAN_FRONTEND=noninteractive
 rm -rf /root/.bash_history
 apt-get update
 apt-get clean
 rm -f /0
 rm -f /hs_err*
-rm -f cleanup
+rm -f /cleanup
 rm -f /usr/bin/qemu*
 EOF
     chmod +x /tmp/cln
@@ -333,34 +289,17 @@ EOF
 kali_rootfs_linuxkernel() {
     # compile and install linux kernel for Raspberry Pi 2, install rpi2 specified tools
 
-    export ARCH=arm
-    if [ "${ISCROSS}" = "1" ]; then
-        export CROSS_COMPILE=${srcdir}/tools-raspberrypi-git/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/arm-linux-gnueabihf-
-        if [ $(uname -m) = x86_64 ]; then
-            export CROSS_COMPILE=${srcdir}/tools-raspberrypi-git/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/bin/arm-linux-gnueabihf-
-        fi
-    else
-        export CROSS_COMPILE=
-    fi
     CORES=$(grep -c processor /proc/cpuinfo)
     if [ "$CORES" = "" ]; then
         CORES=2
     fi
 
     # compile linux kernel for Raspberry Pi 2
-    cd "$srcdir/linux-raspberrypi-git"
     make -j $CORES
     make -j $CORES modules
 
     # install kernel
     make -j $CORES modules_install INSTALL_MOD_PATH=${DN_ROOTFS_RPI2}
-    cp -rf ${srcdir}/firmware-raspberrypi-git/boot/* ${DN_BOOT}
-    cp arch/arm/boot/zImage ${DN_BOOT}/kernel.img
-
-    cd ${srcdir}
-    cat << EOF > ${DN_BOOT}/cmdline.txt
-dwc_otg.lpm_enable=0 console=ttyAMA0,115200 kgdboc=ttyAMA0,115200 console=tty1 elevator=deadline root=/dev/mmcblk0p2 rootfstype=ext4 rootwait
-EOF
 
     rm -rf ${DN_ROOTFS_RPI2}/lib/firmware
     cd ${DN_ROOTFS_RPI2}/lib
@@ -368,11 +307,24 @@ EOF
     cp -r ${srcdir}/firmware-linux-git firmware
     rm -rf ${DN_ROOTFS_RPI2}/lib/firmware/.git
 
+if [ 1 = 0 ]; then
+    make uImage
+    sudo cp arch/arm/boot/uImage arch/arm/boot/dts/meson8b_odroidc.dtb "${DN_BOOT}"
+
+else
+    cp -rf ${srcdir}/firmware-raspberrypi-git/boot/* ${DN_BOOT}
+    cp arch/arm/boot/zImage ${DN_BOOT}/kernel.img
+
+    cd ${srcdir}
+    cat << EOF > ${DN_BOOT}/cmdline.txt
+dwc_otg.lpm_enable=0 console=ttyAMA0,115200 kgdboc=ttyAMA0,115200 console=tty1 elevator=deadline root=/dev/mmcblk0p2 rootfstype=ext4 rootwait
+EOF
     # rpi-wiggle
     mkdir -p ${DN_ROOTFS_RPI2}/scripts
     #wget https://raw.github.com/dweeber/rpiwiggle/master/rpi-wiggle -O ${DN_ROOTFS_RPI2}/scripts/rpi-wiggle.sh
     cp ${srcdir}/rpiwiggle-git/rpi-wiggle ${DN_ROOTFS_RPI2}/scripts/rpi-wiggle.sh
     chmod 755 ${DN_ROOTFS_RPI2}/scripts/rpi-wiggle.sh
+fi
 }
 
 rsync_and_verify() {
@@ -489,15 +441,80 @@ EOF
     fi
 }
 
+prepare() {
+    # setup environments
+    MACHINE=${ARCHITECTURE}
+    ISCROSS=1
+    HW=$(uname -m)
+    case ${HW} in
+    armv5el)
+        # Pi 1
+        ISCROSS=0
+        MACHINE=armel
+        ;;
+    armv7l)
+        # Pi 2
+        ISCROSS=0
+        MACHINE=armhf
+        ;;
+    x86_64)
+        ;;
+    esac
+    export MACHINEARCH="${MACHINE}"
+
+    export DN_TOOLCHAIN_UBOOT="${srcdir}/toolchains-uboot-${MACHINEARCH}"
+    export DN_TOOLCHAIN_KERNEL="${srcdir}/tools-raspberrypi-git/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/"
+
+    DN_ROOTFS_RPI2="${srcdir}/rootfs-rpi2-${MACHINEARCH}"
+    DN_BOOT="${DN_ROOTFS_RPI2}/boot"
+    DN_ROOTFS_DEBIAN="${srcdir}/rootfs-kali-${MACHINEARCH}"
+
+    rm -rf ${DN_BOOT}
+    rm -rf ${DN_ROOTFS_RPI2}
+    #rm -rf ${DN_ROOTFS_DEBIAN}
+    mkdir -p ${DN_BOOT}
+    mkdir -p ${DN_ROOTFS_RPI2}
+    mkdir -p ${DN_ROOTFS_DEBIAN}
+
+
+    # linux kernel for Raspberry Pi 2
+    cd "$srcdir/linux-raspberrypi-git"
+    git submodule init
+    git submodule update
+    patch -p1 --no-backup-if-mismatch < ${srcdir}/${PATCH_MAC80211}
+    touch .scmversion
+
+    cp ${srcdir}/${CONFIG_KERNEL} .config
+    patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
+}
+
 build() {
     cd ${srcdir}
     # create rootfs
     kali_rootfs_debootstrap
+
+    export ARCH=arm
+    if [ "${ISCROSS}" = "1" ]; then
+        if [ $(uname -m) = x86_64 ]; then
+            export DN_TOOLCHAIN_KERNEL="${srcdir}/tools-raspberrypi-git/"
+            export PATH=${DN_TOOLCHAIN_KERNEL}/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/bin/:$PATH
+            export CROSS_COMPILE=arm-linux-gnueabihf-
+        else
+            export DN_TOOLCHAIN_KERNEL="${srcdir}/tools-raspberrypi-git/"
+            export PATH=${DN_TOOLCHAIN_KERNEL}/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/:$PATH
+            export CROSS_COMPILE=arm-linux-gnueabihf-
+        fi
+    else
+        export CROSS_COMPILE=
+        unset CROSS_COMPILE
+    fi
+    cd "$srcdir/linux-raspberrypi-git"
     kali_rootfs_linuxkernel
-    kali_create_image "${DN_ROOTFS_DEBIAN}" "${DN_ROOTFS_RPI2}"
 }
 
 package() {
+    kali_create_image "${DN_ROOTFS_DEBIAN}" "${DN_ROOTFS_RPI2}"
+
     cd ${srcdir}
     #make DESTDIR="$pkgdir/" install
     mkdir -p "${pkgdir}/usr/share/${pkgname}"
