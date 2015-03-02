@@ -463,7 +463,7 @@ prepare() {
     export MACHINEARCH="${MACHINE}"
 
     export DN_TOOLCHAIN_UBOOT="${srcdir}/toolchains-uboot-${MACHINEARCH}"
-    export DN_TOOLCHAIN_KERNEL="${srcdir}/tools-raspberrypi-git/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/"
+    export DN_TOOLCHAIN_KERNEL="${srcdir}/toolchains-kernel-${MACHINEARCH}"
 
     DN_ROOTFS_RPI2="${srcdir}/rootfs-rpi2-${MACHINEARCH}"
     DN_BOOT="${DN_ROOTFS_RPI2}/boot"
