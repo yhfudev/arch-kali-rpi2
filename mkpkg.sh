@@ -31,6 +31,38 @@ else
 fi
 
 #####################################################################
+# process arguments
+
+usage () {
+  PARAM_NAME="$1"
+  echo "" >> "/dev/stderr"
+  echo "mkpkg.sh" >> "/dev/stderr"
+  echo "Written by yhfu, 2015-03" >> "/dev/stderr"
+  echo "" >> "/dev/stderr"
+  echo "${PARAM_NAME} [options]" >> "/dev/stderr"
+  echo "" >> "/dev/stderr"
+  echo "Options:" >> "/dev/stderr"
+  echo -e "\t--help            Print this message" >> "/dev/stderr"
+  echo -e "\t--config <file>   read in user's config file" >> "/dev/stderr"
+  echo "" >> "/dev/stderr"
+}
+
+TITLE_BASE=""
+while [ ! "$1" = "" ]; do
+    case "$1" in
+    --help|-h)
+        usage "$0"
+        exit 0
+        ;;
+    --config)
+        shift
+        read_user_config "$1"
+        ;;
+    esac
+    shift
+done
+
+#####################################################################
 
 if [ ! -f "PKGBUILD" ]; then
     echo "Error, not found file PKGBUILD"

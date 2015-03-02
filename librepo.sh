@@ -4,11 +4,31 @@ DANGER_EXEC=
 MYEXEC=
 
 #set MYEXEC to echo for dry run
-MYEXEC="echo [DryRun]"
+#MYEXEC="echo [DryRun]"
 
 FN_LOG=/dev/stderr
 
 BASEDIR=$(pwd)
+
+# import config file
+if [ -f "/etc/makepkg.conf" ]; then
+. /etc/makepkg.conf
+fi
+
+if [ "PKGDEST" = "" ]; then
+    PKGDEST="${BASEDIR}/pkg/"
+fi
+if [ "SRCDEST" = "" ]; then
+    SRCDEST="${BASEDIR}/src/"
+fi
+if [ "SRCPKGDEST" = "" ]; then
+    SRCPKGDEST="${BASEDIR}/"
+fi
+
+read_user_config () {
+    PARAM_FN="$1"
+    . "${PARAM_FN}"
+}
 
 #NAME_SHORT=rpi
 
@@ -113,9 +133,6 @@ detect_url() {
     fi
 }
 
-DN_REPO_SRC="${BASEDIR}/src"
-DN_REPO_PKG="${BASEDIR}/pkg"
-
 check_xxxsum_ok () {
     PARAM_DNFILE=$1
     shift
@@ -193,7 +210,7 @@ check_xxxsum_ok () {
 }
 
 down_sources() {
-    ${MYEXEC} mkdir -p "${DN_REPO_SRC}"
+    ${MYEXEC} mkdir -p "${SRCPKGDEST}"
     clear_detect_url
     CNT=0
     #for i in ${source[*]} ; do
@@ -217,7 +234,7 @@ down_sources() {
         case ${DECLNXOUT_TOOL} in
         git)
             DN0=$(pwd)
-            cd "${DN_REPO_SRC}"
+            cd "${SRCPKGDEST}"
             if [ -d "${DECLNXOUT_RENAME}" ]; then
                 cd "${DECLNXOUT_RENAME}"
                 echo "[DBG] try git pull ..."
@@ -231,7 +248,7 @@ down_sources() {
             ;;
         svn)
             DN0=$(pwd)
-            cd "${DN_REPO_SRC}"
+            cd "${SRCPKGDEST}"
             if [ -d "${DECLNXOUT_RENAME}" ]; then
                 cd "${DECLNXOUT_RENAME}"
                 echo "[DBG] try svn update ..."
@@ -250,7 +267,7 @@ down_sources() {
             fi
             if [ "${DECLNXOUT_TOOL}" = "wget" ]; then
 #echo "[DBG] check wget file: ${FNDOWN}" >> "${FN_LOG}"
-                FLG_OK=$(check_xxxsum_ok "${DN_REPO_SRC}" "${FNDOWN}" ${CNT})
+                FLG_OK=$(check_xxxsum_ok "${SRCPKGDEST}" "${FNDOWN}" ${CNT})
             else
 #echo "[DBG] check local file: ${FNDOWN}" >> "${FN_LOG}"
                 FLG_OK=$(check_xxxsum_ok "" "${FNDOWN}" ${CNT})
@@ -258,7 +275,7 @@ down_sources() {
             if [ "${FLG_OK}" = "false" ]; then
                 echo "[DBG] DECLNXOUT_RENAME=${DECLNXOUT_RENAME}, FNDOWN=${FNDOWN}" >> "${FN_LOG}"
                 if [ "${DECLNXOUT_TOOL}" = "wget" ]; then
-                    ${MYEXEC} wget -O "${DN_REPO_SRC}/${FNDOWN}" "${DECLNXOUT_URL}"
+                    ${MYEXEC} wget -O "${SRCPKGDEST}/${FNDOWN}" "${DECLNXOUT_URL}"
                 else
                     echo "Error in checking file: ${DECLNXOUT_RENAME}" >> "${FN_LOG}"
                     exit 1
@@ -272,13 +289,13 @@ down_sources() {
 }
 
 checkout_sources() {
-    if [ "${DN_REPO_PKG}/" = "/" ]; then
+    if [ "${srcdir}/" = "/" ]; then
         echo "[DBG] not set repo pkg dir"
         exit 1
     else
-        echo ${MYEXEC} ${DANGER_EXEC} rm -rf "${DN_REPO_PKG}/"
+        echo ${MYEXEC} ${DANGER_EXEC} rm -rf "${srcdir}/"
     fi
-    ${MYEXEC} mkdir -p "${DN_REPO_PKG}"
+    ${MYEXEC} mkdir -p "${srcdir}"
     clear_detect_url
     for i in ${source[*]} ; do
         echo "[DBG] checkout url=$i" >> "${FN_LOG}"
@@ -303,37 +320,37 @@ checkout_sources() {
         fi
         case ${DECLNXOUT_TOOL} in
         git)
-            if [ -d "${DN_REPO_PKG}/${FN_BASE}" ]; then
-                cd "${DN_REPO_PKG}/${FN_BASE}"
+            if [ -d "${srcdir}/${FN_BASE}" ]; then
+                cd "${srcdir}/${FN_BASE}"
                 echo "[DBG] try git 'revert' ..."
                 #${MYEXEC} git ls-files | ${MYEXEC} xargs git checkout --
                 ${MYEXEC} git status | grep "modified:" | awk '{print $2}' | ${MYEXEC} xargs git checkout --
                 cd -
             else
-                echo "[DBG] try git clone --depth 1 ${DN_REPO_SRC}/${FN_BASE} ${DN_REPO_PKG}/${FN_BASE} ..."
-                ${MYEXEC} git clone --depth 1 "${DN_REPO_SRC}/${FN_BASE}" "${DN_REPO_PKG}/${FN_BASE}"
+                echo "[DBG] try git clone --depth 1 ${SRCPKGDEST}/${FN_BASE} ${srcdir}/${FN_BASE} ..."
+                ${MYEXEC} git clone --depth 1 "${SRCPKGDEST}/${FN_BASE}" "${srcdir}/${FN_BASE}"
             fi
             ;;
         svn)
-            if [ -d "${DN_REPO_PKG}/${FN_BASE}" ]; then
-                cd "${DN_REPO_PKG}/${FN_BASE}"
+            if [ -d "${srcdir}/${FN_BASE}" ]; then
+                cd "${srcdir}/${FN_BASE}"
                 echo "[DBG] try svn 'revert' ..."
                 ${MYEXEC} svn revert --recursive
                 cd -
             else
-                echo "[DBG] try cp -rp ${DN_REPO_SRC}/${FN_BASE} ${DN_REPO_PKG}/${FN_BASE} ..."
-                ${MYEXEC} cp -rp "${DN_REPO_SRC}/${FN_BASE}" "${DN_REPO_PKG}/${FN_BASE}"
+                echo "[DBG] try cp -rp ${SRCPKGDEST}/${FN_BASE} ${srcdir}/${FN_BASE} ..."
+                ${MYEXEC} cp -rp "${SRCPKGDEST}/${FN_BASE}" "${srcdir}/${FN_BASE}"
             fi
             ;;
         wget)
             FNDOWN=$(echo "${DECLNXOUT_RENAME}" | awk -F? '{print $1}' | xargs basename)
-            ${MYEXEC} rm -f "${DN_REPO_PKG}/${FNDOWN}"
-            ${MYEXEC} ln -s "${DN_REPO_SRC}/${FNDOWN}" "${DN_REPO_PKG}/${FNDOWN}"
+            ${MYEXEC} rm -f "${srcdir}/${FNDOWN}"
+            ${MYEXEC} ln -s "${SRCPKGDEST}/${FNDOWN}" "${srcdir}/${FNDOWN}"
             ;;
         local)
             FNDOWN=$(echo "${DECLNXOUT_RENAME}" | awk -F? '{print $1}' | xargs basename)
-            ${MYEXEC} rm -f "${DN_REPO_PKG}/${FNDOWN}"
-            ${MYEXEC} ln -s "${BASEDIR}/${FNDOWN}" "${DN_REPO_PKG}/${FNDOWN}"
+            ${MYEXEC} rm -f "${srcdir}/${FNDOWN}"
+            ${MYEXEC} ln -s "${BASEDIR}/${FNDOWN}" "${srcdir}/${FNDOWN}"
             ;;
         esac
     done
@@ -349,25 +366,24 @@ makepkg_tarpkg() {
     echo "[DBG] PREFIX=${PREFIX}"
     case ${PKGEXT} in
     *.tar.xz)
-        ${MYEXEC} XZ_OPT=-9 tar -Jcf "${DN_REPO_PKG}/../${PREFIX}.pkg.tar.xz" .
+        ${MYEXEC} XZ_OPT=-9 tar -Jcf "${BASEDIR}/${PREFIX}.pkg.tar.xz" .
         ;;
     *.tar.bz2)
-        ${MYEXEC} tar -jcf "${DN_REPO_PKG}/../${PREFIX}.pkg.tar.bz2" .
+        ${MYEXEC} tar -jcf "${BASEDIR}/${PREFIX}.pkg.tar.bz2" .
         ;;
     *)
-        ${MYEXEC} tar -zcf "${DN_REPO_PKG}/../${PREFIX}.pkg.tar.gz" .
+        ${MYEXEC} tar -zcf "${BASEDIR}/${PREFIX}.pkg.tar.gz" .
         ;;
     esac
 }
 PKGEXT=.pkg.tar.xz
 
-srcdir="${DN_REPO_PKG}"
-pkgdir="${DN_REPO_PKG}/makepkgroot"
+srcdir="${SRCDEST}/"
+pkgdir="${PKGDEST}/${pkgname}"
 
+mkdir -p "${srcdir}"
 mkdir -p "${pkgdir}"
-
-mkdir -p "${DN_REPO_SRC}"
-mkdir -p "${DN_REPO_PKG}"
+mkdir -p "${SRCPKGDEST}"
 
 
 #NAME_SHORT=rpi

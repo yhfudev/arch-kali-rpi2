@@ -8,7 +8,7 @@ arch=('i686' 'x86_64' 'arm')
 url="https://github.com/yhfudev/arch-kali-rpi2.git"
 license=('GPL')
 depends=(
-    'gcc-libs' 'bash' 'libncurses-dev'
+    'gcc-libs' 'bash' 'ncurses'
     'qemu' 'qemu-user' 'qemu-user-static' 'binfmt-support' # cross compile and chroot
     'debootstrap' # to create debian rootfs
     'dosfstools'
@@ -71,7 +71,7 @@ source=(
         "rpiwiggle-git::git+https://github.com/dweeber/rpiwiggle/"
         "kali-wifi-injection-3.18.patch" #"mac80211.patch::https://raw.github.com/offensive-security/kali-arm-build-scripts/master/patches/kali-wifi-injection-3.12.patch"
         "rpi2-3.19.config"
-        "rpi-kernel-config.patch"
+        "rpi-kernel-config-3.19.patch"
         )
 
 md5sums=(
@@ -137,7 +137,7 @@ kali_rootfs_debootstrap() {
     shift
 
     # the apt cache folder
-    DN_APT_CACHE="${srcdir}/apt-cache-kali-${MACHINEARCH}"
+    DN_APT_CACHE="${pkgdir}/apt-cache-kali-${MACHINEARCH}"
     mkdir -p "${DN_APT_CACHE}"
     mkdir -p "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
