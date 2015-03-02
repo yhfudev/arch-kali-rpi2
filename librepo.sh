@@ -143,13 +143,44 @@ check_xxxsum_ok () {
                 fi
             fi
         fi
-        if [[ ${#shasums[*]} > ${PARAM_CNT} ]]; then
-            if [ ! "${shasums[${PARAM_CNT}]}" = "SKIP" ]; then
+        
+        if [[ ${#sha1sums[*]} > ${PARAM_CNT} ]]; then
+            if [ ! "${sha1sums[${PARAM_CNT}]}" = "SKIP" ]; then
                 SHASUM=$(shasum "${PATH_FILE}" | awk '{print $1}')
-                if [ ! "${SHASUM}" = "${shasums[${PARAM_CNT}]}" ]; then
+                if [ ! "${SHASUM}" = "${sha1sums[${PARAM_CNT}]}" ]; then
                     FLG_ERROR=1
-                    echo "[DBG] file SHASUM error: ${PATH_FILE}" >> "${FN_LOG}"
-                    echo "[DBG] file SHASUM=${SHASUM}; sha[${PARAM_CNT}]=${shasums[${PARAM_CNT}]}" >> "${FN_LOG}"
+                    echo "[DBG] file sha1sums error: ${PATH_FILE}" >> "${FN_LOG}"
+                    echo "[DBG] file sha1sums=${SHASUM}; sha[${PARAM_CNT}]=${sha1sums[${PARAM_CNT}]}" >> "${FN_LOG}"
+                fi
+            fi
+        fi
+        if [[ ${#sha256sums[*]} > ${PARAM_CNT} ]]; then
+            if [ ! "${sha256sums[${PARAM_CNT}]}" = "SKIP" ]; then
+                SHASUM=$(sha256sum "${PATH_FILE}" | awk '{print $1}')
+                if [ ! "${SHASUM}" = "${sha256sums[${PARAM_CNT}]}" ]; then
+                    FLG_ERROR=1
+                    echo "[DBG] file sha256sums error: ${PATH_FILE}" >> "${FN_LOG}"
+                    echo "[DBG] file sha256sums=${SHASUM}; sha[${PARAM_CNT}]=${sha256sums[${PARAM_CNT}]}" >> "${FN_LOG}"
+                fi
+            fi
+        fi
+        if [[ ${#sha384sums[*]} > ${PARAM_CNT} ]]; then
+            if [ ! "${sha384sums[${PARAM_CNT}]}" = "SKIP" ]; then
+                SHASUM=$(sha384sum "${PATH_FILE}" | awk '{print $1}')
+                if [ ! "${SHASUM}" = "${sha384sums[${PARAM_CNT}]}" ]; then
+                    FLG_ERROR=1
+                    echo "[DBG] file sha384sums error: ${PATH_FILE}" >> "${FN_LOG}"
+                    echo "[DBG] file sha384sums=${SHASUM}; sha[${PARAM_CNT}]=${sha384sums[${PARAM_CNT}]}" >> "${FN_LOG}"
+                fi
+            fi
+        fi
+        if [[ ${#sha512sums[*]} > ${PARAM_CNT} ]]; then
+            if [ ! "${sha512sums[${PARAM_CNT}]}" = "SKIP" ]; then
+                SHASUM=$(sha512sum "${PATH_FILE}" | awk '{print $1}')
+                if [ ! "${SHASUM}" = "${sha512sums[${PARAM_CNT}]}" ]; then
+                    FLG_ERROR=1
+                    echo "[DBG] file sha512sums error: ${PATH_FILE}" >> "${FN_LOG}"
+                    echo "[DBG] file sha512sums=${SHASUM}; sha[${PARAM_CNT}]=${sha512sums[${PARAM_CNT}]}" >> "${FN_LOG}"
                 fi
             fi
         fi

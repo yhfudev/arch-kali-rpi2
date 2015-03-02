@@ -1,7 +1,7 @@
 # Maintainer: Yunhui Fu <yhfudev at gmail dot com>
 
 pkgname=kali-rpi2-git
-pkgver=5c92661
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Raspberry Pi 2 Kali image"
 arch=('i686' 'x86_64' 'arm')
@@ -11,6 +11,7 @@ depends=(
     'gcc-libs' 'bash' 'libncurses-dev'
     'qemu' 'qemu-user' 'qemu-user-static' 'binfmt-support' # cross compile and chroot
     'debootstrap' # to create debian rootfs
+    'dosfstools'
     #'build-essential' 'devscripts' 'fakeroot' 'kernel-package' # debian packages
     )
 makedepends=('git')
@@ -19,12 +20,13 @@ conflicts=('kali-rpi2')
 #install="$pkgname.install"
 #PKGEXT=.pkg.tar.xz
 
-NAME_SHORT=${pkgname}
-VERSION=1.1.0
+# kali arch
+ARCHITECTURE="armel"
+#ARCHITECTURE="armhf"
+
 
 # the image container size
 IMGCONTAINER_SIZE=3000 # Size of image in megabytes
-
 
 # Package installations for various sections.
 # This will build a minimal XFCE Kali system with the top 10 tools.
@@ -42,7 +44,6 @@ PACKAGES_SERVICES="openssh-server apache2"
 PACKAGES_EXTRAS="iceweasel wpasupplicant"
 export PACKAGES="${PACKAGES_ARM} ${PACKAGES_BASE} ${PACKAGES_DESKTOP} ${PACKAGES_TOOLS} ${PACKAGES_SERVICES} ${PACKAGES_EXTRAS}"
 
-export ARCHITECTURE="armel"
 # If you have your own preferred mirrors, set them here.
 # You may want to leave security.kali.org alone, but if you trust your local
 # mirror, feel free to change this as well.
@@ -73,7 +74,7 @@ md5sums=(
          '95560f6b44bf10f75a7515dae9c79dd5'
          'SKIP'
          )
-shasums=(
+sha1sums=(
          #'SKIP'
          'SKIP'
          'SKIP'
@@ -121,7 +122,7 @@ prepare() {
 
     rm -rf ${DN_BOOT}
     rm -rf ${DN_ROOTFS_RPI2}
-    rm -rf ${DN_ROOTFS_DEBIAN}
+    #rm -rf ${DN_ROOTFS_DEBIAN}
     mkdir -p ${DN_BOOT}
     mkdir -p ${DN_ROOTFS_RPI2}
     mkdir -p ${DN_ROOTFS_DEBIAN}
@@ -148,7 +149,7 @@ register_qemuarm() {
     # Check if format is not registered already
     if [ ! -f "$BINFMT_MISC/$FORMAT_NAME" ]; then
         echo "Registering arm binfmt_misc support"
-        sudo echo "$FORMAT_REGISTRATION" > /proc/sys/fs/binfmt_misc/register
+        echo "echo '$FORMAT_REGISTRATION' > /proc/sys/fs/binfmt_misc/register" | sudo sh
     else
         echo "Format $FORMAT_NAME already registered."
     fi
@@ -157,7 +158,7 @@ register_qemuarm() {
 unregister_qemuarm() {
     # We were asked to drop the registration
     if [ -f "$BINFMT_MISC/$FORMAT_NAME" ]; then
-        sudo echo -1 > "$BINFMT_MISC/$FORMAT_NAME"
+        echo "echo -1 > '$BINFMT_MISC/$FORMAT_NAME'" | sudo sh
     else
         echo "Format $FORMAT_NAME not registered."
     fi
@@ -169,35 +170,51 @@ kali_rootfs_debootstrap() {
     PARAM_DN_RPI=$1
     shift
 
+    # the apt cache folder
+    DN_APT_CACHE="${srcdir}/apt-cache-kali-${MACHINEARCH}"
+    mkdir -p "${DN_APT_CACHE}"
+    mkdir -p "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
+
     # build kali rootfs
     cd "$srcdir"
 
-    echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
     if [ ! -f /usr/share/debootstrap/scripts/kali ]; then
         sudo ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/kali
     fi
 
-    # create the rootfs - not much to modify here, except maybe the hostname.
-    sudo debootstrap --foreign --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
-
     if [ "${ISCROSS}" = "1" ]; then
         register_qemuarm
-        cp /usr/bin/qemu-arm-static "${DN_ROOTFS_DEBIAN}/usr/bin/"
     fi
 
-sudo chroot "${DN_ROOTFS_DEBIAN}" /usr/bin/env -i LANG=C /debootstrap/debootstrap --second-stage
+    sudo mount -o bind "${DN_APT_CACHE}" "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
-# Create sources.list
-cat << EOF > "${DN_ROOTFS_DEBIAN}/etc/apt/sources.list"
+    if [ ! -d "${DN_ROOTFS_DEBIAN}" ]; then
+        echo "[DBG] debootstrap state 1"
+        # create the rootfs - not much to modify here, except maybe the hostname.
+        echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
+        sudo debootstrap --foreign --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
+
+        if [ "${ISCROSS}" = "1" ]; then
+            sudo cp /usr/bin/qemu-arm-static "${DN_ROOTFS_DEBIAN}/usr/bin/"
+        fi
+
+        echo "[DBG] debootstrap state 2"
+        sudo chroot "${DN_ROOTFS_DEBIAN}" /usr/bin/env -i LANG=C /debootstrap/debootstrap --second-stage
+    fi
+
+    # Create sources.list
+    cat << EOF > /tmp/list
 deb http://${INSTALL_MIRROR}/kali kali main contrib non-free
 deb http://${INSTALL_SECURITY}/kali-security kali/updates main contrib non-free
 EOF
+    sudo mv /tmp/list "${DN_ROOTFS_DEBIAN}/etc/apt/sources.list"
 
-# Set hostname
-echo "kali" > "${DN_ROOTFS_DEBIAN}/etc/hostname"
+    # Set hostname
 
-# So X doesn't complain, we add kali to hosts
-cat << EOF > "${DN_ROOTFS_DEBIAN}/etc/hosts"
+    echo "echo kali > '${DN_ROOTFS_DEBIAN}/etc/hostname'" | sudo sh
+
+    # So X doesn't complain, we add kali to hosts
+    cat << EOF > /tmp/host
 127.0.0.1       kali    localhost
 ::1             localhost ip6-localhost ip6-loopback
 fe00::0         ip6-localnet
@@ -205,34 +222,42 @@ ff00::0         ip6-mcastprefix
 ff02::1         ip6-allnodes
 ff02::2         ip6-allrouters
 EOF
+    sudo mv /tmp/host "${DN_ROOTFS_DEBIAN}/etc/hosts"
 
-cat << EOF > "${DN_ROOTFS_DEBIAN}/etc/network/interfaces"
+    cat << EOF > /tmp/net
 auto lo
 iface lo inet loopback
 
 auto eth0
 iface eth0 inet dhcp
 EOF
+    sudo mv /tmp/net "${DN_ROOTFS_DEBIAN}/etc/network/interfaces"
 
-cat << EOF > "${DN_ROOTFS_DEBIAN}/etc/resolv.conf"
+    cat << EOF > /tmp/reso
 nameserver 8.8.8.8
 EOF
+    sudo mv /tmp/reso "${DN_ROOTFS_DEBIAN}/etc/resolv.conf"
 
-export MALLOC_CHECK_=0 # workaround for LP: #520465
-export LC_ALL=C
-export DEBIAN_FRONTEND=noninteractive
+    export MALLOC_CHECK_=0 # workaround for LP: #520465
+    export LC_ALL=C
+    export DEBIAN_FRONTEND=noninteractive
 
-sudo mount -t proc proc "${DN_ROOTFS_DEBIAN}/proc"
-sudo mount -o bind /dev/ "${DN_ROOTFS_DEBIAN}/dev/"
-sudo mount -o bind /dev/pts "${DN_ROOTFS_DEBIAN}/dev/pts"
+    sudo mount -t proc proc "${DN_ROOTFS_DEBIAN}/proc"
+    sudo mount -o bind /dev/ "${DN_ROOTFS_DEBIAN}/dev/"
+    sudo mount -o bind /dev/pts "${DN_ROOTFS_DEBIAN}/dev/pts"
 
-cat << EOF > "${DN_ROOTFS_DEBIAN}/debconf.set"
+    cat << EOF > /tmp/deb
 console-common console-data/keymap/policy select Select keymap from full list
 console-common console-data/keymap/full select en-latin1-nodeadkeys
 EOF
+    sudo mv /tmp/deb "${DN_ROOTFS_DEBIAN}/debconf.set"
 
-cat << EOF > "${DN_ROOTFS_DEBIAN}/third-stage"
+    echo "[DBG] debootstrap state 3"
+    cat << EOF > /tmp/ths
 #!/bin/bash
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:
+export DEBIAN_FRONTEND=noninteractive
+
 dpkg-divert --add --local --divert /usr/sbin/invoke-rc.d.chroot --rename /usr/sbin/invoke-rc.d
 cp /bin/true /usr/sbin/invoke-rc.d
 echo -e "#!/bin/sh\nexit 101" > /usr/sbin/policy-rc.d
@@ -259,33 +284,35 @@ dpkg-divert --remove --rename /usr/sbin/invoke-rc.d
 
 rm -f /third-stage
 EOF
+    chmod +x /tmp/ths
+    sudo mv /tmp/ths "${DN_ROOTFS_DEBIAN}/third-stage"
 
-chmod +x "${DN_ROOTFS_DEBIAN}/third-stage"
-sudo chroot "${DN_ROOTFS_DEBIAN}" /usr/bin/env -i LANG=C /third-stage
+    sudo chroot "${DN_ROOTFS_DEBIAN}" /third-stage
 
-cat << EOF > "${DN_ROOTFS_DEBIAN}/cleanup"
+    cat << EOF > /tmp/cln
 #!/bin/bash
 rm -rf /root/.bash_history
 apt-get update
-apt-get clean
+#apt-get clean # we use outer cache dir to bind with the apt cache dir
 rm -f /0
 rm -f /hs_err*
 rm -f cleanup
 rm -f /usr/bin/qemu*
 EOF
+    chmod +x /tmp/cln
+    sudo mv /tmp/cln "${DN_ROOTFS_DEBIAN}/cleanup"
 
-chmod +x "${DN_ROOTFS_DEBIAN}/cleanup"
-sudo chroot /usr/bin/env -i LANG=C "${DN_ROOTFS_DEBIAN}" /cleanup
+    sudo chroot "${DN_ROOTFS_DEBIAN}" /cleanup
 
-sudo umount "${DN_ROOTFS_DEBIAN}/proc/sys/fs/binfmt_misc"
-sudo umount "${DN_ROOTFS_DEBIAN}/dev/pts"
-sudo umount "${DN_ROOTFS_DEBIAN}/dev/"
-sudo umount "${DN_ROOTFS_DEBIAN}/proc"
+    sudo umount "${DN_ROOTFS_DEBIAN}/proc/sys/fs/binfmt_misc"
+    sudo umount "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
+    sudo umount "${DN_ROOTFS_DEBIAN}/dev/pts"
+    sudo umount "${DN_ROOTFS_DEBIAN}/dev/"
+    sudo umount "${DN_ROOTFS_DEBIAN}/proc"
 
     if [ "${ISCROSS}" = "1" ]; then
         unregister_qemuarm
     fi
-
 }
 
 kali_rootfs_linuxkernel() {
@@ -339,14 +366,15 @@ rsync_and_verify() {
     PARAM_DN_DST="$1"
     shift
 
-    rsync -HPavz -q "${PARAM_DN_SRC}" "${PARAM_DN_DST}"
+    sudo rsync -HPavz -q "${PARAM_DN_SRC}" "${PARAM_DN_DST}"
 
+if [ 1 = 0 ]; then
     # verify the files
-    cd "${DN_ROOTFS_DEBIAN}/"
-    find . -type f | xargs -n 1 md5sum > /tmp/md5sum-root
+    cd "${PARAM_DN_SRC}/"
+    sudo find . -type f | sudo xargs -n 1 md5sum > /tmp/md5sum-root
     cd -
-    cd ${basedir}/root/
-    md5sum -c /tmp/md5sum-root
+    cd "${PARAM_DN_DST}"
+    sudo md5sum -c /tmp/md5sum-root
     RET=$?
     cd -
     if [ "$RET" = "1" ]; then
@@ -354,6 +382,7 @@ rsync_and_verify() {
         echo "Error in rootfs" >> "${FN_LOG}"
         exit 1
     fi
+fi
 }
 
 
@@ -364,26 +393,29 @@ kali_create_image() {
     PARAM_DN_ROOTFS_RPI2="$1"
     shift
 
-    FN_IMAGE="${srcdir}/kali-${VERSION}-${NAME_SHORT}.img"
+    FN_IMAGE="${srcdir}/kali-${pkgver}-${pkgname}.img"
     # Create the disk and partition it
-    echo "Creating image file for ${DESCRIPTION}"
-    dd if=/dev/zero of=${FN_IMAGE} bs=1M count=${IMGCONTAINER_SIZE}
-    parted ${FN_IMAGE} --script -- mklabel msdos
-    #parted ${FN_IMAGE} --script -- mkpart primary fat32  0 64
-    #parted ${FN_IMAGE} --script -- mkpart primary ext4  64 -1
-    parted ${FN_IMAGE} --script -- mkpart primary fat32   2048s 264191s
-    parted ${FN_IMAGE} --script -- mkpart primary ext4  264192s    100%
+
+    echo "Creating image file for ${pkgdesc}"
+    if [ ! -f "${FN_IMAGE}" ]; then
+        dd if=/dev/zero of=${FN_IMAGE} bs=1M count=${IMGCONTAINER_SIZE}
+        parted ${FN_IMAGE} --script -- mklabel msdos
+        #parted ${FN_IMAGE} --script -- mkpart primary fat32  0 64
+        #parted ${FN_IMAGE} --script -- mkpart primary ext4  64 -1
+        parted ${FN_IMAGE} --script -- mkpart primary fat32   2048s 264191s
+        parted ${FN_IMAGE} --script -- mkpart primary ext4  264192s    100%
+    fi
 
     # Set the partition variables
-    DEV_LOOP=`losetup -f --show ${FN_IMAGE}`
-    LOOPNAME=`kpartx -va ${DEV_LOOP} | sed -E 's/.*(loop[0-9])p.*/\1/g' | head -1`
+    DEV_LOOP=$(sudo losetup -f --show ${FN_IMAGE})
+    LOOPNAME=$(sudo kpartx -va ${DEV_LOOP} | sed -E 's/.*(loop[0-9])p.*/\1/g' | head -1)
     DEVICE="/dev/mapper/${LOOPNAME}"
     bootp=${DEVICE}p1
     rootp=${DEVICE}p2
 
     # Create file systems
-    mkfs.vfat -n boot $bootp
-    mkfs.ext4 -L root $rootp
+    sudo mkfs.vfat -n boot $bootp
+    sudo mkfs.ext4 -L root $rootp
 
     # Create the dirs for the partitions and mount them
     DN_ROOT=${srcdir}/mntrootfs
@@ -391,30 +423,32 @@ kali_create_image() {
     sudo mount $rootp ${DN_ROOT}
 
     DN_BOOT=${DN_ROOT}/boot
-    mkdir -p ${DN_BOOT}
+    sudo mkdir -p ${DN_BOOT}
     sudo mount $bootp ${DN_BOOT}
 
     echo "Rsyncing rootfs into image file"
-    rsync_and_verify "${PARAM_DN_ROOTFS_DEBIAN}/" ${basedir}/root/
+    rsync_and_verify "${PARAM_DN_ROOTFS_DEBIAN}/" ${DN_ROOT}/
 
-    rsync_and_verify "${PARAM_DN_ROOTFS_RPI2}/"   ${basedir}/root/
+    echo "Rsyncing kernel into image file"
+    rsync_and_verify "${PARAM_DN_ROOTFS_RPI2}/"   ${DN_ROOT}/
 
     # Enable login over serial
-    echo "T0:23:respawn:/sbin/agetty -L ttyAMA0 115200 vt100" >> ${basedir}/root/etc/inittab
+    echo "echo 'T0:23:respawn:/sbin/agetty -L ttyAMA0 115200 vt100' >> ${DN_ROOT}/etc/inittab" | sudo sh
 
-    cat << EOF > ${basedir}/root/etc/apt/sources.list
+    cat << EOF > /tmp/aptlst
 deb http://http.kali.org/kali kali main non-free contrib
 deb http://security.kali.org/kali-security kali/updates main contrib non-free
 
 deb-src http://http.kali.org/kali kali main non-free contrib
 deb-src http://security.kali.org/kali-security kali/updates main contrib non-free
 EOF
+    sudo mv /tmp/aptlst "${DN_ROOT}/etc/apt/sources.list"
 
     # Unmount partitions
     sudo umount ${DN_BOOT}
     sudo umount ${DN_ROOT}
-    kpartx -dv ${DEV_LOOP}
-    losetup -d ${DEV_LOOP}
+    sudo kpartx -dv ${DEV_LOOP}
+    sudo losetup -d ${DEV_LOOP}
 
     # Clean up all the temporary build stuff and remove the directories.
     # Comment this out to keep things around if you want to see what may have gone
@@ -443,8 +477,8 @@ EOF
 build() {
     cd ${srcdir}
     # create rootfs
-    kali_rootfs_debootstrap
-    kali_rootfs_linuxkernel
+    #kali_rootfs_debootstrap
+    #kali_rootfs_linuxkernel
     kali_create_image "${DN_ROOTFS_DEBIAN}" "${DN_ROOTFS_RPI2}"
 }
 
