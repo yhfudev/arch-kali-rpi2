@@ -59,6 +59,7 @@ source=(
         "rpiwiggle-git::git+https://github.com/dweeber/rpiwiggle/"
         "kali-wifi-injection-3.18.patch" #"mac80211.patch::https://raw.github.com/offensive-security/kali-arm-build-scripts/master/patches/kali-wifi-injection-3.12.patch"
         "rpi2-3.19.config"
+        "rpi-kernel-config.patch"
         )
 
 md5sums=(
@@ -70,6 +71,7 @@ md5sums=(
          'SKIP'
          '37b89f74e3f9f6c20295da564ece5b8f'
          '95560f6b44bf10f75a7515dae9c79dd5'
+         'SKIP'
          )
 shasums=(
          #'SKIP'
@@ -80,6 +82,7 @@ shasums=(
          'SKIP'
          '48ce0c7886128fb068b70b5692b60a6c5aec0e96'
          'c0c30c8d9c53cb6694d22c0aa92d7c28f1987463'
+         'SKIP'
          )
 
 pkgver() {
@@ -131,8 +134,7 @@ prepare() {
     touch .scmversion
 
     cp ${srcdir}/rpi2-3.19.config .config
-
-
+    patch -p0 --no-backup-if-mismatch < ${srcdir}/rpi-kernel-config.patch
 }
 
 FORMAT_NAME='arm'
@@ -146,7 +148,7 @@ register_qemuarm() {
     # Check if format is not registered already
     if [ ! -f "$BINFMT_MISC/$FORMAT_NAME" ]; then
         echo "Registering arm binfmt_misc support"
-        echo "$FORMAT_REGISTRATION" > /proc/sys/fs/binfmt_misc/register
+        sudo echo "$FORMAT_REGISTRATION" > /proc/sys/fs/binfmt_misc/register
     else
         echo "Format $FORMAT_NAME already registered."
     fi
@@ -155,12 +157,11 @@ register_qemuarm() {
 unregister_qemuarm() {
     # We were asked to drop the registration
     if [ -f "$BINFMT_MISC/$FORMAT_NAME" ]; then
-        echo -1 > "$BINFMT_MISC/$FORMAT_NAME"
+        sudo echo -1 > "$BINFMT_MISC/$FORMAT_NAME"
     else
         echo "Format $FORMAT_NAME not registered."
     fi
 }
-
 
 kali_rootfs_debootstrap() {
     PARAM_DN_DEBIAN=$1
@@ -172,7 +173,7 @@ kali_rootfs_debootstrap() {
     cd "$srcdir"
 
     echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
-    if [ ! -f /usr/share/debootstrap/scripts/sid ]; then
+    if [ ! -f /usr/share/debootstrap/scripts/kali ]; then
         sudo ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/kali
     fi
 
@@ -180,7 +181,7 @@ kali_rootfs_debootstrap() {
     sudo debootstrap --foreign --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
 
     if [ "${ISCROSS}" = "1" ]; then
-        sudo register_qemuarm
+        register_qemuarm
         cp /usr/bin/qemu-arm-static "${DN_ROOTFS_DEBIAN}/usr/bin/"
     fi
 
@@ -282,7 +283,7 @@ sudo umount "${DN_ROOTFS_DEBIAN}/dev/"
 sudo umount "${DN_ROOTFS_DEBIAN}/proc"
 
     if [ "${ISCROSS}" = "1" ]; then
-        sudo unregister_qemuarm
+        unregister_qemuarm
     fi
 
 }

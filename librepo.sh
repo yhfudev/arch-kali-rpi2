@@ -275,7 +275,8 @@ checkout_sources() {
             if [ -d "${DN_REPO_PKG}/${FN_BASE}" ]; then
                 cd "${DN_REPO_PKG}/${FN_BASE}"
                 echo "[DBG] try git 'revert' ..."
-                ${MYEXEC} git ls-files | ${MYEXEC} xargs git checkout --
+                #${MYEXEC} git ls-files | ${MYEXEC} xargs git checkout --
+                ${MYEXEC} git status | grep "modified:" | awk '{print $2}' | ${MYEXEC} xargs git checkout --
                 cd -
             else
                 echo "[DBG] try git clone --depth 1 ${DN_REPO_SRC}/${FN_BASE} ${DN_REPO_PKG}/${FN_BASE} ..."
