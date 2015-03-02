@@ -4,7 +4,7 @@ DANGER_EXEC=
 MYEXEC=
 
 #set MYEXEC to echo for dry run
-MYEXEC="echo [DryRun]"
+#MYEXEC="echo [DryRun]"
 
 FN_LOG=/dev/stderr
 
@@ -183,26 +183,34 @@ down_sources() {
             exit 0
         fi
         #echo "TOOL=${DECLNXOUT_TOOL}; URL=${DECLNXOUT_URL}; rename=${DECLNXOUT_RENAME}; " >> "${FN_LOG}"
-        if [ -d "${DN_REPO_SRC}/${DECLNXOUT_RENAME}" ]; then
-            echo "[DBG] skip dir ${DN_REPO_SRC}/${DECLNXOUT_RENAME}" >> "${FN_LOG}"
-            CNT=$(( ${CNT} + 1 ))
-            continue
-        fi
-        if [ -f "${DN_REPO_SRC}/${DECLNXOUT_RENAME}" ]; then
-            echo "[DBG] skip file ${DN_REPO_SRC}/${DECLNXOUT_RENAME}" >> "${FN_LOG}"
-            CNT=$(( ${CNT} + 1 ))
-            continue
-        fi
         case ${DECLNXOUT_TOOL} in
         git)
+            DN0=$(pwd)
             cd "${DN_REPO_SRC}"
-            ${MYEXEC} git clone --no-checkout "${DECLNXOUT_URL}" ${DECLNXOUT_RENAME}
-            cd -
+            if [ -d "${DECLNXOUT_RENAME}" ]; then
+                cd "${DECLNXOUT_RENAME}"
+                echo "[DBG] try git pull ..."
+                ${MYEXEC} git pull
+                cd -
+            else
+                echo "[DBG] try git clone --no-checkout ${DECLNXOUT_URL} ${DECLNXOUT_RENAME} ..."
+                ${MYEXEC} git clone --no-checkout "${DECLNXOUT_URL}" ${DECLNXOUT_RENAME}
+            fi
+            cd ${DN0}
             ;;
         svn)
+            DN0=$(pwd)
             cd "${DN_REPO_SRC}"
-            ${MYEXEC} svn checkout "${DECLNXOUT_URL}" ${DECLNXOUT_RENAME}
-            cd -
+            if [ -d "${DECLNXOUT_RENAME}" ]; then
+                cd "${DECLNXOUT_RENAME}"
+                echo "[DBG] try svn update ..."
+                ${MYEXEC} svn update
+                cd -
+            else
+                echo "[DBG] try svn checkout ${DECLNXOUT_URL} ${DECLNXOUT_RENAME} ..."
+                ${MYEXEC} svn checkout "${DECLNXOUT_URL}" ${DECLNXOUT_RENAME}
+            fi
+            cd ${DN0}
             ;;
         wget|local)
             FNDOWN="${DECLNXOUT_RENAME}"
@@ -237,7 +245,7 @@ checkout_sources() {
         echo "[DBG] not set repo pkg dir"
         exit 1
     else
-        ${MYEXEC} ${DANGER_EXEC} rm -rf "${DN_REPO_PKG}/"
+        echo ${MYEXEC} ${DANGER_EXEC} rm -rf "${DN_REPO_PKG}/"
     fi
     ${MYEXEC} mkdir -p "${DN_REPO_PKG}"
     clear_detect_url
@@ -264,24 +272,70 @@ checkout_sources() {
         fi
         case ${DECLNXOUT_TOOL} in
         git)
-            ${MYEXEC} git clone --depth 1 "${DN_REPO_SRC}/${FN_BASE}" "${DN_REPO_PKG}/${FN_BASE}"
+            if [ -d "${DN_REPO_PKG}/${FN_BASE}" ]; then
+                cd "${DN_REPO_PKG}/${FN_BASE}"
+                echo "[DBG] try git 'revert' ..."
+                ${MYEXEC} git ls-files | ${MYEXEC} xargs git checkout --
+                cd -
+            else
+                echo "[DBG] try git clone --depth 1 ${DN_REPO_SRC}/${FN_BASE} ${DN_REPO_PKG}/${FN_BASE} ..."
+                ${MYEXEC} git clone --depth 1 "${DN_REPO_SRC}/${FN_BASE}" "${DN_REPO_PKG}/${FN_BASE}"
+            fi
             ;;
         svn)
-            ${MYEXEC} cp -rp "${DN_REPO_SRC}/${FN_BASE}" "${DN_REPO_PKG}/${FN_BASE}"
+            if [ -d "${DN_REPO_PKG}/${FN_BASE}" ]; then
+                cd "${DN_REPO_PKG}/${FN_BASE}"
+                echo "[DBG] try svn 'revert' ..."
+                ${MYEXEC} svn revert --recursive
+                cd -
+            else
+                echo "[DBG] try cp -rp ${DN_REPO_SRC}/${FN_BASE} ${DN_REPO_PKG}/${FN_BASE} ..."
+                ${MYEXEC} cp -rp "${DN_REPO_SRC}/${FN_BASE}" "${DN_REPO_PKG}/${FN_BASE}"
+            fi
             ;;
-        wget|local)
+        wget)
             FNDOWN=$(echo "${DECLNXOUT_RENAME}" | awk -F? '{print $1}' | xargs basename)
+            ${MYEXEC} rm -f "${DN_REPO_PKG}/${FNDOWN}"
             ${MYEXEC} ln -s "${DN_REPO_SRC}/${FNDOWN}" "${DN_REPO_PKG}/${FNDOWN}"
+            ;;
+        local)
+            FNDOWN=$(echo "${DECLNXOUT_RENAME}" | awk -F? '{print $1}' | xargs basename)
+            ${MYEXEC} rm -f "${DN_REPO_PKG}/${FNDOWN}"
+            ${MYEXEC} ln -s "${BASEDIR}/${FNDOWN}" "${DN_REPO_PKG}/${FNDOWN}"
             ;;
         esac
     done
 }
 
+makepkg_tarpkg() {
+    cd "${pkgdir}"
+    PREFIX="${pkgname}-$(uname -m)"
+    type pkgver > /dev/null
+    if [ "$?" = "0" ]; then
+        PREFIX="${pkgname}-$(pkgver)-$(uname -m)"
+    fi
+    echo "[DBG] PREFIX=${PREFIX}"
+    case ${DECLNXOUT_TOOL} in
+    *.tar.xz)
+        ${MYEXEC} XZ_OPT=-9 tar -Jcf "${DN_REPO_PKG}/../${PREFIX}.pkg.tar.xz" .
+        ;;
+    *.tar.bz2)
+        ${MYEXEC} tar -jcf "${DN_REPO_PKG}/../${PREFIX}.pkg.tar.bz2" .
+        ;;
+    *)
+        ${MYEXEC} tar -zcf "${DN_REPO_PKG}/../${PREFIX}.pkg.tar.gz" .
+        ;;
+    esac
+}
+PKGEXT=.pkg.tar.xz
+
 srcdir="${DN_REPO_PKG}"
+pkgdir="${DN_REPO_PKG}/makepkgroot"
+
+mkdir -p "${pkgdir}"
 
 mkdir -p "${DN_REPO_SRC}"
 mkdir -p "${DN_REPO_PKG}"
-
 
 
 #NAME_SHORT=rpi

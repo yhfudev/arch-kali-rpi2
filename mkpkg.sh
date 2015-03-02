@@ -47,6 +47,8 @@ fi
 . ${DN_EXEC}/librepo.sh
 
 #####################################################################
+DN_ORIGIN=$(pwd)
+
 down_sources
 
 echo "[DBG] check version: $(pkgver)"
@@ -54,8 +56,23 @@ echo "[DBG] check version: $(pkgver)"
 checkout_sources
 
 # call user's function
-prepare
+type prepare > /dev/null
+if [ "$?" = "0" ]; then
+    ${MYEXEC} cd "${DN_ORIGIN}"
+    ${MYEXEC} prepare
+fi
 
-build
+type build > /dev/null
+if [ "$?" = "0" ]; then
+    ${MYEXEC} cd "${DN_ORIGIN}"
+    ${MYEXEC} build
+fi
 
-package
+type package > /dev/null
+if [ "$?" = "0" ]; then
+    ${MYEXEC} cd "${DN_ORIGIN}"
+    ${MYEXEC} package
+    ${MYEXEC} makepkg_tarpkg
+fi
+
+${MYEXEC} cd "${DN_ORIGIN}"
