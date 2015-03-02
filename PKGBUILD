@@ -1,6 +1,6 @@
 # Maintainer: Yunhui Fu <yhfudev at gmail dot com>
 
-pkgname=kali-rpi2-git
+pkgname=kali-rpi2-image
 pkgver=1.1.0
 pkgrel=1
 pkgdesc="Raspberry Pi 2 Kali image"
@@ -15,15 +15,26 @@ depends=(
     #'build-essential' 'devscripts' 'fakeroot' 'kernel-package' # debian packages
     )
 makedepends=('git')
-provides=('kali-rpi2-git')
-conflicts=('kali-rpi2')
 #install="$pkgname.install"
 #PKGEXT=.pkg.tar.xz
 
-# kali arch
-ARCHITECTURE="armel"
-#ARCHITECTURE="armhf"
+provides=('kali-rpi2-git')
+conflicts=('kali-rpi2')
 
+if [ 0 = 1 ]; then
+# config for Raspberry Pi 1
+ARCHITECTURE="armel"
+#PATCH_MAC80211="kali-arm-build-scripts-git/patches/kali-wifi-injection-3.12.patch"
+PATCH_MAC80211="kali-wifi-injection-3.18.patch"
+CONFIG_KERNEL="kali-arm-build-scripts-git/kernel-configs/rpi-3.12.config"
+PATCH_CONFIG_KERNEL="kali-arm-build-scripts-git/patches/rpi-kernel-config.patch"
+else
+# config for Raspberry Pi 2
+ARCHITECTURE="armhf"
+PATCH_MAC80211="kali-wifi-injection-3.18.patch"
+CONFIG_KERNEL="rpi2-3.19.config"
+PATCH_CONFIG_KERNEL="rpi-kernel-config-3.19.patch"
+fi
 
 # the image container size
 IMGCONTAINER_SIZE=3000 # Size of image in megabytes
@@ -38,10 +49,10 @@ IMGCONTAINER_SIZE=3000 # Size of image in megabytes
 # image, keep that in mind.
 PACKAGES_ARM="abootimg cgpt fake-hwclock ntpdate vboot-utils vboot-kernel-utils uboot-mkimage"
 PACKAGES_BASE="kali-menu kali-defaults initramfs-tools sudo parted e2fsprogs usbutils"
-PACKAGES_DESKTOP="xfce4 network-manager network-manager-gnome xserver-xorg-video-fbdev"
+#PACKAGES_DESKTOP="xfce4 network-manager network-manager-gnome xserver-xorg-video-fbdev"
 PACKAGES_TOOLS="passing-the-hash winexe aircrack-ng hydra john sqlmap wireshark libnfc-bin mfoc nmap ethtool usbutils"
 PACKAGES_SERVICES="openssh-server apache2"
-PACKAGES_EXTRAS="iceweasel wpasupplicant"
+#PACKAGES_EXTRAS="iceweasel wpasupplicant"
 export PACKAGES="${PACKAGES_ARM} ${PACKAGES_BASE} ${PACKAGES_DESKTOP} ${PACKAGES_TOOLS} ${PACKAGES_SERVICES} ${PACKAGES_EXTRAS}"
 
 # If you have your own preferred mirrors, set them here.
@@ -52,7 +63,7 @@ export INSTALL_MIRROR=http.kali.org
 export INSTALL_SECURITY=security.kali.org
 
 source=(
-        #"kali-arm-build-scripts::git+https://github.com/yhfudev/kali-arm-build-scripts.git"
+        "kali-arm-build-scripts::git+https://github.com/yhfudev/kali-arm-build-scripts.git"
         "linux-raspberrypi-git::git+https://github.com/raspberrypi/linux.git"
         "tools-raspberrypi-git::git+https://github.com/raspberrypi/tools.git"
         "firmware-raspberrypi-git::git+https://github.com/raspberrypi/firmware.git"
@@ -64,7 +75,7 @@ source=(
         )
 
 md5sums=(
-         #'SKIP'
+         'SKIP'
          'SKIP'
          'SKIP'
          'SKIP'
@@ -75,7 +86,7 @@ md5sums=(
          'SKIP'
          )
 sha1sums=(
-         #'SKIP'
+         'SKIP'
          'SKIP'
          'SKIP'
          'SKIP'
@@ -114,11 +125,9 @@ prepare() {
     esac
     export MACHINEARCH="${MACHINE}"
 
-    DN_ROOTFS_RPI2=${srcdir}/rootfs-rpi2
-    DN_BOOT=${DN_ROOTFS_RPI2}/boot
+    DN_ROOTFS_RPI2="${srcdir}/rootfs-rpi2-${MACHINEARCH}"
+    DN_BOOT="${DN_ROOTFS_RPI2}/boot"
     DN_ROOTFS_DEBIAN="${srcdir}/rootfs-kali-${MACHINEARCH}"
-    #PATCH_MAC80211=mac80211.patch
-    PATCH_MAC80211=kali-wifi-injection-3.18.patch
 
     rm -rf ${DN_BOOT}
     rm -rf ${DN_ROOTFS_RPI2}
@@ -127,6 +136,7 @@ prepare() {
     mkdir -p ${DN_ROOTFS_RPI2}
     mkdir -p ${DN_ROOTFS_DEBIAN}
 
+
     # linux kernel for Raspberry Pi 2
     cd "$srcdir/linux-raspberrypi-git"
     git submodule init
@@ -134,8 +144,8 @@ prepare() {
     patch -p1 --no-backup-if-mismatch < ${srcdir}/${PATCH_MAC80211}
     touch .scmversion
 
-    cp ${srcdir}/rpi2-3.19.config .config
-    patch -p0 --no-backup-if-mismatch < ${srcdir}/rpi-kernel-config.patch
+    cp ${srcdir}/${CONFIG_KERNEL} .config
+    patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
 }
 
 FORMAT_NAME='arm'
@@ -188,20 +198,19 @@ kali_rootfs_debootstrap() {
 
     sudo mount -o bind "${DN_APT_CACHE}" "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
-    if [ ! -d "${DN_ROOTFS_DEBIAN}" ]; then
-        echo "[DBG] debootstrap state 1"
-        # create the rootfs - not much to modify here, except maybe the hostname.
-        echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
-        sudo debootstrap --foreign --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
+    echo "[DBG] debootstrap state 1"
+    # create the rootfs - not much to modify here, except maybe the hostname.
+    echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
+    sudo debootstrap --foreign --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
 
-        if [ "${ISCROSS}" = "1" ]; then
-            sudo cp /usr/bin/qemu-arm-static "${DN_ROOTFS_DEBIAN}/usr/bin/"
-        fi
-
-        echo "[DBG] debootstrap state 2"
-        sudo chroot "${DN_ROOTFS_DEBIAN}" /usr/bin/env -i LANG=C /debootstrap/debootstrap --second-stage
+    if [ "${ISCROSS}" = "1" ]; then
+        sudo cp /usr/bin/qemu-arm-static "${DN_ROOTFS_DEBIAN}/usr/bin/"
     fi
 
+    echo "[DBG] debootstrap state 2"
+    sudo chroot "${DN_ROOTFS_DEBIAN}" /usr/bin/env -i LANG=C /debootstrap/debootstrap --second-stage
+
+    echo "[DBG] debootstrap state 2.5"
     # Create sources.list
     cat << EOF > /tmp/list
 deb http://${INSTALL_MIRROR}/kali kali main contrib non-free
@@ -242,6 +251,9 @@ EOF
     export LC_ALL=C
     export DEBIAN_FRONTEND=noninteractive
 
+    #sudo mkdir -p "${DN_ROOTFS_DEBIAN}/proc"
+    #sudo mkdir -p "${DN_ROOTFS_DEBIAN}/dev/"
+    #sudo mkdir -p "${DN_ROOTFS_DEBIAN}/dev/pts"
     sudo mount -t proc proc "${DN_ROOTFS_DEBIAN}/proc"
     sudo mount -o bind /dev/ "${DN_ROOTFS_DEBIAN}/dev/"
     sudo mount -o bind /dev/pts "${DN_ROOTFS_DEBIAN}/dev/pts"
@@ -289,11 +301,15 @@ EOF
 
     sudo chroot "${DN_ROOTFS_DEBIAN}" /third-stage
 
+    sudo umount "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
+
     cat << EOF > /tmp/cln
 #!/bin/bash
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:
+export DEBIAN_FRONTEND=noninteractive
 rm -rf /root/.bash_history
 apt-get update
-#apt-get clean # we use outer cache dir to bind with the apt cache dir
+apt-get clean
 rm -f /0
 rm -f /hs_err*
 rm -f cleanup
@@ -305,7 +321,6 @@ EOF
     sudo chroot "${DN_ROOTFS_DEBIAN}" /cleanup
 
     sudo umount "${DN_ROOTFS_DEBIAN}/proc/sys/fs/binfmt_misc"
-    sudo umount "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
     sudo umount "${DN_ROOTFS_DEBIAN}/dev/pts"
     sudo umount "${DN_ROOTFS_DEBIAN}/dev/"
     sudo umount "${DN_ROOTFS_DEBIAN}/proc"
@@ -393,7 +408,7 @@ kali_create_image() {
     PARAM_DN_ROOTFS_RPI2="$1"
     shift
 
-    FN_IMAGE="${srcdir}/kali-${pkgver}-${pkgname}.img"
+    FN_IMAGE="${srcdir}/${pkgname}-${pkgver}-${MACHINEARCH}.img"
     # Create the disk and partition it
 
     echo "Creating image file for ${pkgdesc}"
@@ -418,7 +433,7 @@ kali_create_image() {
     sudo mkfs.ext4 -L root $rootp
 
     # Create the dirs for the partitions and mount them
-    DN_ROOT=${srcdir}/mntrootfs
+    DN_ROOT="${srcdir}/mntrootfs-${MACHINEARCH}"
     mkdir -p ${DN_ROOT}
     sudo mount $rootp ${DN_ROOT}
 
@@ -477,8 +492,8 @@ EOF
 build() {
     cd ${srcdir}
     # create rootfs
-    #kali_rootfs_debootstrap
-    #kali_rootfs_linuxkernel
+    kali_rootfs_debootstrap
+    kali_rootfs_linuxkernel
     kali_create_image "${DN_ROOTFS_DEBIAN}" "${DN_ROOTFS_RPI2}"
 }
 
