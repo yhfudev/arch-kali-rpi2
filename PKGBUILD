@@ -11,7 +11,8 @@ depends=(
     'gcc-libs' 'bash' 'ncurses'
     'qemu' 'qemu-user-static' 'binfmt-support' # cross compile and chroot
     'debootstrap' # to create debian rootfs
-    'dosfstools'
+    'parted' 'dosfstools'
+    #'lib32-libstdc++5' 'lib32-zlib' # for 32 bit compiler
     #'build-essential' 'devscripts' 'fakeroot' 'kernel-package' # debian packages
     )
 makedepends=('git')
@@ -63,7 +64,7 @@ export INSTALL_MIRROR=http.kali.org
 export INSTALL_SECURITY=security.kali.org
 
 source=(
-        "kali-arm-build-scripts::git+https://github.com/yhfudev/kali-arm-build-scripts.git"
+        "kali-arm-build-scripts-git::git+https://github.com/yhfudev/kali-arm-build-scripts.git"
         "linux-raspberrypi-git::git+https://github.com/raspberrypi/linux.git"
         "tools-raspberrypi-git::git+https://github.com/raspberrypi/tools.git"
         "firmware-raspberrypi-git::git+https://github.com/raspberrypi/firmware.git"
@@ -432,7 +433,7 @@ EOF
     MACHINE_TYPE=$(uname -m)
     if [ ${MACHINE_TYPE} == 'x86_64' ]; then
         echo "Compressing ${FN_IMAGE}"
-        pixz ${FN_IMAGE} ${FN_IMAGE}.xz
+        xz ${FN_IMAGE} ${FN_IMAGE}.xz
         if [ "$?" = "0" ]; then
             rm -f ${FN_IMAGE}
             echo "Generating sha1sum for ${FN_IMAGE}.xz"
@@ -523,7 +524,7 @@ build() {
     fi
 
     echo "Build Linux kernel ..."
-    cd "$srcdir/linux-raspberrypi-git"
+    cd "${srcdir}/linux-raspberrypi-git"
     kali_rootfs_linuxkernel
     echo "Build Linux kernel DONE!"
 }
