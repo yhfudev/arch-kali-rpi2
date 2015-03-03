@@ -243,9 +243,11 @@ down_sources() {
             else
                 echo "[DBG] try git clone --no-checkout ${DECLNXOUT_URL} ${DECLNXOUT_RENAME} ..."
                 ${MYEXEC} git clone --no-checkout "${DECLNXOUT_URL}" ${DECLNXOUT_RENAME}
-                ${MYEXEC} echo "for branch in \$(git branch -a | grep remotes | grep -v HEAD | grep -v master); do git branch --track \${branch##*/} $branch ; done" | ${MYEXEC} bash
+                cd ${DECLNXOUT_RENAME}
+                ${MYEXEC} echo "for branch in \$(git branch -a | grep remotes | grep -v HEAD | grep -v master); do git branch --track \${branch##*/} \$branch ; done" | ${MYEXEC} bash
                 ${MYEXEC} git fetch --all
                 ${MYEXEC} git pull --all
+                cd -
             fi
             cd ${DN0}
             ;;
@@ -353,6 +355,11 @@ checkout_sources() {
             else
                 echo "[DBG] try git clone ${SRCPKGDEST}/${FN_BASE} ${srcdir}/${FN_BASE} ..."
                 ${MYEXEC} git clone "${SRCPKGDEST}/${FN_BASE}" "${srcdir}/${FN_BASE}"
+                #cd "${srcdir}/${FN_BASE}"
+                #${MYEXEC} echo "for branch in \$(git branch -a | grep remotes | grep -v HEAD | grep -v master); do git branch --track \${branch##*/} \$branch ; done" | ${MYEXEC} bash
+                #${MYEXEC} git fetch --all
+                #${MYEXEC} git pull --all
+                #cd -
             fi
             ;;
         hg)

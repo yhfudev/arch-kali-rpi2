@@ -489,9 +489,12 @@ prepare() {
 }
 
 build() {
+
+    echo "Build rootfs ..."
     cd ${srcdir}
     # create rootfs
     kali_rootfs_debootstrap
+    echo "Build rootfs DONE!"
 
     export ARCH=arm
     if [ "${ISCROSS}" = "1" ]; then
@@ -508,8 +511,11 @@ build() {
         export CROSS_COMPILE=
         unset CROSS_COMPILE
     fi
+
+    echo "Build Linux kernel ..."
     cd "$srcdir/linux-raspberrypi-git"
     kali_rootfs_linuxkernel
+    echo "Build Linux kernel DONE!"
 }
 
 package() {
