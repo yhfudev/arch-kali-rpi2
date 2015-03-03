@@ -425,7 +425,13 @@ makepkg_tarpkg() {
         ;;
     esac
 }
+
 PKGEXT=.pkg.tar.xz
+
+setup_pkgdir () {
+    V=$(grep "\w*pkgname\w*=" "${FN_PKGBUILD}" | awk '{print $2}')
+    export pkgname=${V}
+}
 
 prepare_env() {
     srcdir="${SRCDEST}/"

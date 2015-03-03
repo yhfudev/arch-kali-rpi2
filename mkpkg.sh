@@ -87,10 +87,10 @@ if [ ! -f "${FN_PKGBUILD}" ]; then
     exit 1
 fi
 
+setup_pkgdir
 . "${FN_PKGBUILD}"
 
 prepare_env
-
 
 #####################################################################
 DN_ORIGIN=$(pwd)
