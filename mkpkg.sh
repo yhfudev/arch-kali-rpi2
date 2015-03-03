@@ -88,9 +88,9 @@ if [ ! -f "${FN_PKGBUILD}" ]; then
 fi
 
 setup_pkgdir
-. "${FN_PKGBUILD}"
-
 prepare_env
+
+. "${FN_PKGBUILD}"
 
 #####################################################################
 DN_ORIGIN=$(pwd)
