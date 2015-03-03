@@ -9,7 +9,7 @@ url="https://github.com/yhfudev/arch-kali-rpi2.git"
 license=('GPL')
 depends=(
     'gcc-libs' 'bash' 'ncurses'
-    'qemu' 'qemu-user' 'qemu-user-static' 'binfmt-support' # cross compile and chroot
+    'qemu' 'qemu-user-static' 'binfmt-support' # cross compile and chroot
     'debootstrap' # to create debian rootfs
     'dosfstools'
     #'build-essential' 'devscripts' 'fakeroot' 'kernel-package' # debian packages
@@ -137,7 +137,7 @@ kali_rootfs_debootstrap() {
     shift
 
     # the apt cache folder
-    DN_APT_CACHE="${pkgdir}/apt-cache-kali-${MACHINEARCH}"
+    DN_APT_CACHE="${SRCPKGDEST}/apt-cache-kali-${MACHINEARCH}"
     mkdir -p "${DN_APT_CACHE}"
     mkdir -p "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
@@ -441,7 +441,7 @@ EOF
     fi
 }
 
-prepare() {
+my_setevn() {
     # setup environments
     MACHINE=${ARCHITECTURE}
     ISCROSS=1
@@ -468,6 +468,24 @@ prepare() {
     DN_ROOTFS_RPI2="${srcdir}/rootfs-rpi2-${MACHINEARCH}"
     DN_BOOT="${DN_ROOTFS_RPI2}/boot"
     DN_ROOTFS_DEBIAN="${srcdir}/rootfs-kali-${MACHINEARCH}"
+}
+
+prepare_rpi2_kernel () {
+    # linux kernel for Raspberry Pi 2
+    cd "$srcdir/linux-raspberrypi-git"
+    git submodule init
+    git submodule update
+    git pull --all
+
+    patch -p1 --no-backup-if-mismatch < ${srcdir}/${PATCH_MAC80211}
+    touch .scmversion
+
+    cp ${srcdir}/${CONFIG_KERNEL} .config
+    patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
+}
+
+prepare() {
+    my_setevn
 
     rm -rf ${DN_BOOT}
     rm -rf ${DN_ROOTFS_RPI2}
@@ -476,25 +494,17 @@ prepare() {
     mkdir -p ${DN_ROOTFS_RPI2}
     mkdir -p ${DN_ROOTFS_DEBIAN}
 
-
-    # linux kernel for Raspberry Pi 2
-    cd "$srcdir/linux-raspberrypi-git"
-    git submodule init
-    git submodule update
-    patch -p1 --no-backup-if-mismatch < ${srcdir}/${PATCH_MAC80211}
-    touch .scmversion
-
-    cp ${srcdir}/${CONFIG_KERNEL} .config
-    patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
-}
-
-build() {
+    prepare_rpi2_kernel
 
     echo "Build rootfs ..."
     cd ${srcdir}
     # create rootfs
     kali_rootfs_debootstrap
     echo "Build rootfs DONE!"
+}
+
+build() {
+    my_setevn
 
     export ARCH=arm
     if [ "${ISCROSS}" = "1" ]; then
