@@ -15,13 +15,13 @@ if [ -f "/etc/makepkg.conf" ]; then
 . /etc/makepkg.conf
 fi
 
-if [ "PKGDEST" = "" ]; then
+if [ "${PKGDEST}" = "" ]; then
     PKGDEST="${BASEDIR}/pkg/"
 fi
-if [ "SRCDEST" = "" ]; then
+if [ "${SRCDEST}" = "" ]; then
     SRCDEST="${BASEDIR}/src/"
 fi
-if [ "SRCPKGDEST" = "" ]; then
+if [ "${SRCPKGDEST}" = "" ]; then
     SRCPKGDEST="${BASEDIR}/"
 fi
 
@@ -243,6 +243,23 @@ down_sources() {
             else
                 echo "[DBG] try git clone --no-checkout ${DECLNXOUT_URL} ${DECLNXOUT_RENAME} ..."
                 ${MYEXEC} git clone --no-checkout "${DECLNXOUT_URL}" ${DECLNXOUT_RENAME}
+                ${MYEXEC} echo "for branch in \$(git branch -a | grep remotes | grep -v HEAD | grep -v master); do git branch --track \${branch##*/} $branch ; done" | ${MYEXEC} bash
+                ${MYEXEC} git fetch --all
+                ${MYEXEC} git pull --all
+            fi
+            cd ${DN0}
+            ;;
+        hg)
+            DN0=$(pwd)
+            cd "${SRCPKGDEST}"
+            if [ -d "${DECLNXOUT_RENAME}" ]; then
+                cd "${DECLNXOUT_RENAME}"
+                echo "[DBG] try hg pull ..."
+                ${MYEXEC} hg pull
+                cd -
+            else
+                echo "[DBG] try hg clone --no-checkout ${DECLNXOUT_URL} ${DECLNXOUT_RENAME} ..."
+                ${MYEXEC} hg clone --no-checkout "${DECLNXOUT_URL}" ${DECLNXOUT_RENAME}
             fi
             cd ${DN0}
             ;;
@@ -283,6 +300,13 @@ down_sources() {
 #else echo "[DBG] check file ok: ${FNDOWN}" >> "${FN_LOG}"
             fi
             ;;
+        *)
+            DN0=$(pwd)
+            cd "${SRCPKGDEST}"
+            echo "[DBG] try ${DECLNXOUT_TOOL} ${DECLNXOUT_URL} ${DECLNXOUT_RENAME} ..."
+            ${MYEXEC} ${DECLNXOUT_TOOL} "${DECLNXOUT_URL}" ${DECLNXOUT_RENAME}
+           cd ${DN0}
+            ;;
         esac
         CNT=$(( ${CNT} + 1 ))
     done
@@ -293,7 +317,7 @@ checkout_sources() {
         echo "[DBG] not set repo pkg dir"
         exit 1
     else
-        echo ${MYEXEC} ${DANGER_EXEC} rm -rf "${srcdir}/"
+        echo "DONT remove ${srcdir}/!"
     fi
     ${MYEXEC} mkdir -p "${srcdir}"
     clear_detect_url
@@ -327,8 +351,20 @@ checkout_sources() {
                 ${MYEXEC} git status | grep "modified:" | awk '{print $2}' | ${MYEXEC} xargs git checkout --
                 cd -
             else
-                echo "[DBG] try git clone --depth 1 ${SRCPKGDEST}/${FN_BASE} ${srcdir}/${FN_BASE} ..."
-                ${MYEXEC} git clone --depth 1 "${SRCPKGDEST}/${FN_BASE}" "${srcdir}/${FN_BASE}"
+                echo "[DBG] try git clone ${SRCPKGDEST}/${FN_BASE} ${srcdir}/${FN_BASE} ..."
+                ${MYEXEC} git clone "${SRCPKGDEST}/${FN_BASE}" "${srcdir}/${FN_BASE}"
+            fi
+            ;;
+        hg)
+            if [ -d "${srcdir}/${FN_BASE}" ]; then
+                cd "${srcdir}/${FN_BASE}"
+                echo "[DBG] try hg 'revert' ..."
+                ${MYEXEC} hg update --clean
+                ${MYEXEC} hg revert --all
+                cd -
+            else
+                echo "[DBG] try hg clone ${SRCPKGDEST}/${FN_BASE} ${srcdir}/${FN_BASE} ..."
+                ${MYEXEC} hg clone "${SRCPKGDEST}/${FN_BASE}" "${srcdir}/${FN_BASE}"
             fi
             ;;
         svn)
@@ -351,6 +387,12 @@ checkout_sources() {
             FNDOWN=$(echo "${DECLNXOUT_RENAME}" | awk -F? '{print $1}' | xargs basename)
             ${MYEXEC} rm -f "${srcdir}/${FNDOWN}"
             ${MYEXEC} ln -s "${BASEDIR}/${FNDOWN}" "${srcdir}/${FNDOWN}"
+            ;;
+        *)
+            DN0=$(pwd)
+            echo "[DBG] cp -rp ${SRCPKGDEST}/${FNDOWN} ${srcdir}/${FNDOWN} ..."
+            ${MYEXEC} cp -rp "${SRCPKGDEST}/${FNDOWN}" "${srcdir}/${FNDOWN}"
+            cd ${DN0}
             ;;
         esac
     done
@@ -378,13 +420,18 @@ makepkg_tarpkg() {
 }
 PKGEXT=.pkg.tar.xz
 
-srcdir="${SRCDEST}/"
-pkgdir="${PKGDEST}/${pkgname}"
+prepare_env() {
+    srcdir="${SRCDEST}/"
+    pkgdir="${PKGDEST}/${pkgname}"
 
-mkdir -p "${srcdir}"
-mkdir -p "${pkgdir}"
-mkdir -p "${SRCPKGDEST}"
-
+    echo "[DBG] mkdir for required dir ..."
+    echo "[DBG] srcdir=${srcdir}"
+    echo "[DBG] pkgdir=${pkgdir}"
+    echo "[DBG] SRCPKGDEST=${SRCPKGDEST}"
+    ${MYEXEC} mkdir -p "${srcdir}"
+    ${MYEXEC} mkdir -p "${pkgdir}"
+    ${MYEXEC} mkdir -p "${SRCPKGDEST}"
+}
 
 #NAME_SHORT=rpi
 

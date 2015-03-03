@@ -31,6 +31,15 @@ else
 fi
 
 #####################################################################
+
+if [ ! -f "${DN_EXEC}/librepo.sh" ]; then
+    echo "Error, not found file librepo.sh"
+    exit 1
+fi
+
+. ${DN_EXEC}/librepo.sh
+
+#####################################################################
 # process arguments
 
 usage () {
@@ -47,7 +56,7 @@ usage () {
   echo "" >> "/dev/stderr"
 }
 
-TITLE_BASE=""
+FN_PKGBUILD="PKGBUILD"
 while [ ! "$1" = "" ]; do
     case "$1" in
     --help|-h)
@@ -57,26 +66,31 @@ while [ ! "$1" = "" ]; do
     --config)
         shift
         read_user_config "$1"
+        if [ ! "$?" = "0" ]; then
+            echo "Error in read user config." >> "/dev/stderr"
+            exit 1
+        fi
+        ;;
+    --dryrun)
+        MYEXEC="echo [DryRun]"
+        ;;
+    -p)
+        shift
+        FN_PKGBUILD="$1"
         ;;
     esac
     shift
 done
 
-#####################################################################
-
-if [ ! -f "PKGBUILD" ]; then
+if [ ! -f "${FN_PKGBUILD}" ]; then
     echo "Error, not found file PKGBUILD"
     exit 1
 fi
 
-if [ ! -f "${DN_EXEC}/librepo.sh" ]; then
-    echo "Error, not found file librepo.sh"
-    exit 1
-fi
+. "${FN_PKGBUILD}"
 
-. PKGBUILD
+prepare_env
 
-. ${DN_EXEC}/librepo.sh
 
 #####################################################################
 DN_ORIGIN=$(pwd)
