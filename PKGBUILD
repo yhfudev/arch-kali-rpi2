@@ -161,7 +161,7 @@ kali_rootfs_debootstrap() {
     sudo mount -o bind "${DN_APT_CACHE}" "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
     echo "[DBG] debootstrap state 1"
-    if [[ -f "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE1" ]]; then
+    if [[ -f "${PREFIX_TMP}-${pkgname}-FLG_KALI_ROOTFS_STAGE1" ]]; then
         echo "[DBG] SKIP debootstrap state 1"
 
     else
@@ -169,7 +169,7 @@ kali_rootfs_debootstrap() {
         echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
         sudo debootstrap --foreign --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
         if [ "$?" = "0" ]; then
-            touch "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE1"
+            touch "${PREFIX_TMP}-${pkgname}-FLG_KALI_ROOTFS_STAGE1"
         fi
     fi
 
@@ -178,13 +178,13 @@ kali_rootfs_debootstrap() {
     fi
 
     echo "[DBG] debootstrap state 2"
-    if [[ -f "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE2" ]]; then
+    if [[ -f "${PREFIX_TMP}-${pkgname}-FLG_KALI_ROOTFS_STAGE2" ]]; then
         echo "[DBG] SKIP debootstrap state 2"
 
     else
         sudo chroot "${DN_ROOTFS_DEBIAN}" /usr/bin/env -i LANG=C /debootstrap/debootstrap --second-stage
         if [ "$?" = "0" ]; then
-            touch "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE2"
+            touch "${PREFIX_TMP}-${pkgname}-FLG_KALI_ROOTFS_STAGE2"
         fi
     fi
 
@@ -236,7 +236,7 @@ EOF
     sudo mv /tmp/deb "${DN_ROOTFS_DEBIAN}/debconf.set"
 
     echo "[DBG] debootstrap state 3"
-    if [[ -f "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE3" ]]; then
+    if [[ -f "${PREFIX_TMP}-${pkgname}-FLG_KALI_ROOTFS_STAGE3" ]]; then
         echo "[DBG] SKIP debootstrap state 3"
 
     else
@@ -283,7 +283,7 @@ EOF
 
         sudo chroot "${DN_ROOTFS_DEBIAN}" /third-stage
         if [ "$?" = "0" ]; then
-            touch "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE3"
+            touch "${PREFIX_TMP}-${pkgname}-FLG_KALI_ROOTFS_STAGE3"
         fi
         sudo umount "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
     fi
@@ -397,7 +397,7 @@ kali_create_image() {
     shift
 
     # Create the disk and partition it
-    if [[ ! -f "${FN_IMAGE}" || ! -f "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_CREATE_IMAGE" ]]; then
+    if [[ ! -f "${FN_IMAGE}" || ! -f "${PREFIX_TMP}-${pkgname}-FLG_KALI_CREATE_IMAGE" ]]; then
         echo "Creating image file for ${pkgdesc}"
         dd if=/dev/zero of=${FN_IMAGE} bs=1M count=${IMGCONTAINER_SIZE}
         parted ${FN_IMAGE} --script -- mklabel msdos
@@ -405,7 +405,7 @@ kali_create_image() {
         #parted ${FN_IMAGE} --script -- mkpart primary ext4  64 -1
         parted ${FN_IMAGE} --script -- mkpart primary fat32   2048s 264191s
         parted ${FN_IMAGE} --script -- mkpart primary ext4  264192s    100%
-        touch "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_CREATE_IMAGE"
+        touch "${PREFIX_TMP}-${pkgname}-FLG_KALI_CREATE_IMAGE"
     else
         echo "[DBG] SKIP creating image file ${FN_IMAGE}"
     fi
