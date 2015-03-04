@@ -335,7 +335,7 @@ deb http://security.kali.org/kali-security kali/updates main contrib non-free
 deb-src http://http.kali.org/kali kali main non-free contrib
 deb-src http://security.kali.org/kali-security kali/updates main contrib non-free
 EOF
-    sudo mv "${PREFIX_TMP}-aptlst" "${DN_ROOT}/etc/apt/sources.list"
+    sudo mv "${PREFIX_TMP}-aptlst" "${DN_ROOTFS_DEBIAN}/etc/apt/sources.list"
     if [ ! "$?" = "0" ]; then
         echo "Error in move apt/sources.list"
         exit 1
@@ -691,7 +691,7 @@ prepare_rpi2_kernel () {
 
 prepare() {
     my_setevn
-    rm -f "${FN_IMAGE}" ${PREFIX_TMP}*
+    #rm -f "${FN_IMAGE}" ${PREFIX_TMP}*
 
     rm -rf ${DN_BOOT}
     rm -rf ${DN_ROOTFS_KERNEL}
