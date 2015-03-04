@@ -531,6 +531,30 @@ if [[ ! -f "${PREFIX_TMP}-${pkgname}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-${
 fi
 }
 
+my0_getpath () {
+  PARAM_DN="$1"
+  shift
+  #readlink -f
+  DN="${PARAM_DN}"
+  FN=
+  if [ ! -d "${DN}" ]; then
+    FN=$(basename "${DN}")
+    DN=$(dirname "${DN}")
+  fi
+  cd "${DN}" > /dev/null 2>&1
+  DN=$(pwd)
+  cd - > /dev/null 2>&1
+  echo "${DN}/${FN}"
+}
+
+check_valid_path() {
+    V=$(my0_getpath "$1")
+    if [[ "${V}" = "" || "${V}" = "/" ]]; then
+        echo "Error: not set path variable: $1"
+        exit 1
+    fi
+}
+
 my_setevn() {
     # setup environments
     MACHINE=${ARCHITECTURE}
@@ -576,6 +600,10 @@ my_setevn() {
         export CROSS_COMPILE=
         unset CROSS_COMPILE
     fi
+
+    check_valid_path "${DN_ROOTFS_KERNEL}"
+    check_valid_path "${DN_BOOT}"
+    check_valid_path "${DN_ROOTFS_DEBIAN}"
 }
 
 prepare_rpi2_kernel () {
