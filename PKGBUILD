@@ -449,7 +449,7 @@ kali_rootfs_linuxkernel() {
     my0_check_valid_path "${DN_ROOTFS_KERNEL}"
     sudo mkdir -p "${DN_ROOTFS_KERNEL}/lib/"
     sudo chown -R ${USER} "${DN_ROOTFS_KERNEL}/lib/"
-    rm -rf ${DN_ROOTFS_KERNEL}/lib/firmware
+    sudo rm -rf ${DN_ROOTFS_KERNEL}/lib/firmware
     #git clone --depth 1 https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git ${DN_ROOTFS_KERNEL}/lib/firmware
     cp -r ${srcdir}/firmware-linux-git ${DN_ROOTFS_KERNEL}/lib/firmware
     rm -rf ${DN_ROOTFS_KERNEL}/lib/firmware/.git
