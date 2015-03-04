@@ -415,7 +415,7 @@ makepkg_tarpkg() {
     echo "[DBG] PREFIX=${PREFIX}"
     case ${PKGEXT} in
     *.tar.xz)
-        ${MYEXEC} XZ_OPT=-9 tar -Jcf "${BASEDIR}/${PREFIX}.pkg.tar.xz" .
+        ${MYEXEC} tar -Jcf "${BASEDIR}/${PREFIX}.pkg.tar.xz" .
         ;;
     *.tar.bz2)
         ${MYEXEC} tar -jcf "${BASEDIR}/${PREFIX}.pkg.tar.bz2" .
@@ -444,6 +444,26 @@ prepare_env() {
     ${MYEXEC} mkdir -p "${srcdir}"
     ${MYEXEC} mkdir -p "${pkgdir}"
     ${MYEXEC} mkdir -p "${SRCPKGDEST}"
+}
+
+
+check_depends() {
+    echo "Checking runtime dependencies..."
+    LIST_MISS=
+    for i in ${depends[*]} ; do
+        pacman -Qs $i > /dev/null
+        if [ ! "$?" = "0" ]; then
+            LIST_MISS="${LIST_MISS} $i"
+        fi
+    done
+    if [ ! "${LIST_MISS}" = "" ]; then
+        echo "Installing missing dependencies..."
+        ${MYEXEC} sudo pacman -S ${LIST_MISS}
+        if [ ! "$?" = "0" ]; then
+            echo "Error in install packages"
+            eixt 1
+        fi
+    fi
 }
 
 #NAME_SHORT=rpi

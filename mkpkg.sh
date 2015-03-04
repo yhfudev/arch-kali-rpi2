@@ -95,6 +95,8 @@ prepare_env
 #####################################################################
 DN_ORIGIN=$(pwd)
 
+check_depends
+
 down_sources
 
 echo "[DBG] check version: $(pkgver)"
