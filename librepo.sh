@@ -461,7 +461,7 @@ check_depends() {
         ${MYEXEC} sudo pacman -S ${LIST_MISS}
         if [ ! "$?" = "0" ]; then
             echo "Error in install packages"
-            eixt 1
+            exit 1
         fi
     fi
 }
