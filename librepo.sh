@@ -447,10 +447,10 @@ prepare_env() {
 }
 
 
-check_depends() {
+check_makedepends() {
     echo "Checking runtime dependencies..."
     LIST_MISS=
-    for i in ${depends[*]} ; do
+    for i in ${makedepends[*]} ; do
         pacman -Qs $i > /dev/null
         if [ ! "$?" = "0" ]; then
             LIST_MISS="${LIST_MISS} $i"

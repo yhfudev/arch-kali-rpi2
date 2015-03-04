@@ -8,14 +8,17 @@ arch=('i686' 'x86_64' 'arm')
 url="https://github.com/yhfudev/arch-kali-rpi2.git"
 license=('GPL')
 depends=(
+    )
+makedepends=(
+    'git'
     'gcc-libs' 'bash' 'ncurses'
     'qemu' 'qemu-user-static' 'binfmt-support' # cross compile and chroot
     'debootstrap' # to create debian rootfs
     'parted' 'dosfstools'
+    'yaourt' 'multipath-tools' # for kpartx, in AUR, you need to use yaourt to install it
     #'lib32-libstdc++5' 'lib32-zlib' # for 32 bit compiler
     #'build-essential' 'devscripts' 'fakeroot' 'kernel-package' # debian packages
     )
-makedepends=('git')
 #install="$pkgname.install"
 #PKGEXT=.pkg.tar.xz
 
@@ -158,7 +161,7 @@ kali_rootfs_debootstrap() {
     sudo mount -o bind "${DN_APT_CACHE}" "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
     echo "[DBG] debootstrap state 1"
-    if [[ -f "${PREFIX_TMP}_FLG_KALI_ROOTFS_STAGE1" ]]; then
+    if [[ -f "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE1" ]]; then
         echo "[DBG] SKIP debootstrap state 1"
 
     else
@@ -166,7 +169,7 @@ kali_rootfs_debootstrap() {
         echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
         sudo debootstrap --foreign --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
         if [ "$?" = "0" ]; then
-            touch "${PREFIX_TMP}_FLG_KALI_ROOTFS_STAGE1"
+            touch "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE1"
         fi
     fi
 
@@ -175,13 +178,13 @@ kali_rootfs_debootstrap() {
     fi
 
     echo "[DBG] debootstrap state 2"
-    if [[ -f "${PREFIX_TMP}_FLG_KALI_ROOTFS_STAGE2" ]]; then
+    if [[ -f "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE2" ]]; then
         echo "[DBG] SKIP debootstrap state 2"
 
     else
         sudo chroot "${DN_ROOTFS_DEBIAN}" /usr/bin/env -i LANG=C /debootstrap/debootstrap --second-stage
         if [ "$?" = "0" ]; then
-            touch "${PREFIX_TMP}_FLG_KALI_ROOTFS_STAGE2"
+            touch "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE2"
         fi
     fi
 
@@ -233,7 +236,7 @@ EOF
     sudo mv /tmp/deb "${DN_ROOTFS_DEBIAN}/debconf.set"
 
     echo "[DBG] debootstrap state 3"
-    if [[ -f "${PREFIX_TMP}_FLG_KALI_ROOTFS_STAGE3" ]]; then
+    if [[ -f "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE3" ]]; then
         echo "[DBG] SKIP debootstrap state 3"
 
     else
@@ -280,7 +283,7 @@ EOF
 
         sudo chroot "${DN_ROOTFS_DEBIAN}" /third-stage
         if [ "$?" = "0" ]; then
-            touch "${PREFIX_TMP}_FLG_KALI_ROOTFS_STAGE3"
+            touch "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_ROOTFS_STAGE3"
         fi
         sudo umount "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
     fi
@@ -328,9 +331,8 @@ kali_rootfs_linuxkernel() {
     make -j $CORES modules_install INSTALL_MOD_PATH=${DN_ROOTFS_RPI2}
 
     rm -rf ${DN_ROOTFS_RPI2}/lib/firmware
-    cd ${DN_ROOTFS_RPI2}/lib
-    #git clone --depth 1 https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git firmware
-    cp -r ${srcdir}/firmware-linux-git firmware
+    #git clone --depth 1 https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git ${DN_ROOTFS_RPI2}/lib/firmware
+    cp -r ${srcdir}/firmware-linux-git ${DN_ROOTFS_RPI2}/lib/firmware
     rm -rf ${DN_ROOTFS_RPI2}/lib/firmware/.git
 
 if [ 1 = 0 ]; then
@@ -341,7 +343,6 @@ else
     cp -rf ${srcdir}/firmware-raspberrypi-git/boot/* ${DN_BOOT}
     cp arch/arm/boot/zImage ${DN_BOOT}/kernel.img
 
-    cd ${srcdir}
     cat << EOF > ${DN_BOOT}/cmdline.txt
 dwc_otg.lpm_enable=0 console=ttyAMA0,115200 kgdboc=ttyAMA0,115200 console=tty1 elevator=deadline root=/dev/mmcblk0p2 rootfstype=ext4 rootwait
 EOF
@@ -387,24 +388,33 @@ kali_create_image() {
     shift
 
     # Create the disk and partition it
-    echo "Creating image file for ${pkgdesc}"
-    if [[ ! -f "${FN_IMAGE}" || ! -f "${PREFIX_TMP}_FLG_KALI_CREATE_IMAGE" ]]; then
+    if [[ ! -f "${FN_IMAGE}" || ! -f "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_CREATE_IMAGE" ]]; then
+        echo "Creating image file for ${pkgdesc}"
         dd if=/dev/zero of=${FN_IMAGE} bs=1M count=${IMGCONTAINER_SIZE}
         parted ${FN_IMAGE} --script -- mklabel msdos
         #parted ${FN_IMAGE} --script -- mkpart primary fat32  0 64
         #parted ${FN_IMAGE} --script -- mkpart primary ext4  64 -1
         parted ${FN_IMAGE} --script -- mkpart primary fat32   2048s 264191s
         parted ${FN_IMAGE} --script -- mkpart primary ext4  264192s    100%
-        touch "${PREFIX_TMP}_FLG_KALI_CREATE_IMAGE"
+        touch "${PREFIX_TMP}-${DN_ROOTFS_DEBIAN}-FLG_KALI_CREATE_IMAGE"
+    else
+        echo "[DBG] SKIP creating image file ${FN_IMAGE}"
     fi
     #install_hardkernel_uboot ${FN_IMAGE}
 
     # Set the partition variables
     DEV_LOOP=$(sudo losetup -f --show ${FN_IMAGE})
+    if [ "${DEV_LOOP}" = "" ]; then
+        echo "error in losetup"
+        exit 1
+    fi
     LOOPNAME=$(sudo kpartx -va ${DEV_LOOP} | sed -E 's/.*(loop[0-9])p.*/\1/g' | head -1)
-    DEVICE="/dev/mapper/${LOOPNAME}"
-    bootp=${DEVICE}p1
-    rootp=${DEVICE}p2
+    if [ "${LOOPNAME}" = "" ]; then
+        echo "Error in loop device"
+        exit 1
+    fi
+    bootp="/dev/mapper/${LOOPNAME}p1"
+    rootp="/dev/mapper/${LOOPNAME}p2"
 
     # Create file systems
     sudo mkfs.vfat -n boot $bootp
@@ -574,6 +584,8 @@ build() {
 }
 
 package() {
+    my_setevn
+
     kali_create_image "${DN_ROOTFS_DEBIAN}" "${DN_ROOTFS_RPI2}"
 
     cd ${srcdir}

@@ -95,7 +95,7 @@ prepare_env
 #####################################################################
 DN_ORIGIN=$(pwd)
 
-check_depends
+check_makedepends
 
 down_sources
 
