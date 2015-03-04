@@ -8,16 +8,18 @@ arch=('i686' 'x86_64' 'arm')
 url="https://github.com/yhfudev/arch-kali-rpi2.git"
 license=('GPL')
 depends=(
+    'pixz'
     )
 makedepends=(
-    'git'
-    'gcc-libs' 'bash' 'ncurses'
+    'pixz'
+    'git' 'bc' 'gcc-libs' 'bash' 'ncurses'
     'qemu' 'qemu-user-static' 'binfmt-support' # cross compile and chroot
     'debootstrap' # to create debian rootfs
     'parted' 'dosfstools'
     'yaourt' 'multipath-tools' # for kpartx, in AUR, you need to use yaourt to install it
     #'lib32-libstdc++5' 'lib32-zlib' # for 32 bit compiler
-    #'build-essential' 'devscripts' 'fakeroot' 'kernel-package' # debian packages
+    'base-devel' 'abs' 'fakeroot'
+    # 'kernel-package' # debian packages
     )
 #install="$pkgname.install"
 #PKGEXT=.pkg.tar.xz
@@ -102,7 +104,7 @@ sha1sums=(
          )
 
 pkgver() {
-    cd "$srcdir/$pkgname"
+    cd "$srcdir/kali-arm-build-scripts-git"
     local ver="$(git show | grep commit | awk '{print $2}'  )"
     #printf "r%s" "${ver//[[:alpha:]]}"
     echo ${ver:0:7}
@@ -519,7 +521,7 @@ if [[ ! -f "${PREFIX_TMP}-${pkgname}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-${
     MACHINE_TYPE=$(uname -m)
     if [ ${MACHINE_TYPE} == 'x86_64' ]; then
         echo "Compressing ${FN_IMAGE}"
-        xz ${FN_IMAGE} ${FN_IMAGE}.xz
+        pixz ${FN_IMAGE} ${FN_IMAGE}.xz
         if [ "$?" = "0" ]; then
             rm -f ${FN_IMAGE}
             echo "Generating sha1sum for ${FN_IMAGE}.xz"
@@ -555,7 +557,7 @@ my_setevn() {
     export DN_TOOLCHAIN_UBOOT="${srcdir}/toolchains-uboot-${MACHINEARCH}"
     export DN_TOOLCHAIN_KERNEL="${srcdir}/toolchains-kernel-${MACHINEARCH}"
 
-    DN_ROOTFS_KERNEL="${srcdir}/rootfs-kernel-${MACHINEARCH}"
+    DN_ROOTFS_KERNEL="${srcdir}/rootfs-kernel-${MACHINEARCH}-${pkgname}"
     DN_BOOT="${DN_ROOTFS_KERNEL}/boot"
     DN_ROOTFS_DEBIAN="${srcdir}/rootfs-kali-${MACHINEARCH}-${pkgname}"
 

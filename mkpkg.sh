@@ -124,3 +124,5 @@ if [ "$?" = "0" ]; then
 fi
 
 ${MYEXEC} cd "${DN_ORIGIN}"
+
+exit 0
