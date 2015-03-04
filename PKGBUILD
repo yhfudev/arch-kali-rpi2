@@ -104,7 +104,7 @@ sha1sums=(
          )
 
 pkgver() {
-    cd "$srcdir/kali-arm-build-scripts-git"
+    cd "${srcdir}/kali-arm-build-scripts-git"
     local ver="$(git show | grep commit | awk '{print $2}'  )"
     #printf "r%s" "${ver//[[:alpha:]]}"
     echo ${ver:0:7}
