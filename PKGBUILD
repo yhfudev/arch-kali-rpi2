@@ -202,13 +202,15 @@ kali_rootfs_debootstrap() {
 
     echo "[DBG] debootstrap state 2.5"
     # Create sources.list
-    cat << EOF > "${PREFIX_TMP}-list"
+    cat << EOF > "${PREFIX_TMP}-aptlst1"
 deb http://${INSTALL_MIRROR}/kali kali main contrib non-free
 deb http://${INSTALL_SECURITY}/kali-security kali/updates main contrib non-free
 EOF
-    sudo mv "${PREFIX_TMP}-list" "${DN_ROOTFS_DEBIAN}/etc/apt/sources.list"
+    chmod 644 "${PREFIX_TMP}-aptlst1"
+    sudo chown root:root "${PREFIX_TMP}-aptlst1"
+    sudo mv "${PREFIX_TMP}-aptlst1" "${DN_ROOTFS_DEBIAN}/etc/apt/sources.list"
     if [ ! "$?" = "0" ]; then
-        echo "Error in move apt/sources.list"
+        echo "Error in move apt/sources.list 2.5"
         exit 1
     fi
 
@@ -225,6 +227,8 @@ ff00::0         ip6-mcastprefix
 ff02::1         ip6-allnodes
 ff02::2         ip6-allrouters
 EOF
+    chmod 644 "${PREFIX_TMP}-host"
+    sudo chown root:root "${PREFIX_TMP}-host"
     sudo mv "${PREFIX_TMP}-host" "${DN_ROOTFS_DEBIAN}/etc/hosts"
     if [ ! "$?" = "0" ]; then
         echo "Error in move hosts"
@@ -243,6 +247,8 @@ EOF
     cat << EOF > "${PREFIX_TMP}-reso"
 nameserver 8.8.8.8
 EOF
+    chmod 644 "${PREFIX_TMP}-reso"
+    sudo chown root:root "${PREFIX_TMP}-reso"
     sudo mv "${PREFIX_TMP}-reso" "${DN_ROOTFS_DEBIAN}/etc/resolv.conf"
     if [ ! "$?" = "0" ]; then
         echo "Error in move resolv.conf"
@@ -257,6 +263,8 @@ EOF
 console-common console-data/keymap/policy select Select keymap from full list
 console-common console-data/keymap/full select en-latin1-nodeadkeys
 EOF
+    chmod 644 "${PREFIX_TMP}-deb"
+    sudo chown root:root "${PREFIX_TMP}-deb"
     sudo mv "${PREFIX_TMP}-deb" "${DN_ROOTFS_DEBIAN}/debconf.set"
     if [ ! "$?" = "0" ]; then
         echo "Error in move script debconf.set"
@@ -326,10 +334,8 @@ EOF
         fi
 
         sudo chroot "${DN_ROOTFS_DEBIAN}" /third-stage
-        if [ "$?" = "0" ]; then
-            touch "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE3"
-        else
-            echo "Error in debootstrap stage 3"
+        if [ ! "$?" = "0" ]; then
+            echo "Error in third-stage"
             exit 1
         fi
 
@@ -342,9 +348,11 @@ deb http://security.kali.org/kali-security kali/updates main contrib non-free
 deb-src http://http.kali.org/kali kali main non-free contrib
 deb-src http://security.kali.org/kali-security kali/updates main contrib non-free
 EOF
+        chmod 644 "${PREFIX_TMP}-aptlst"
+        sudo chown root:root "${PREFIX_TMP}-aptlst"
         sudo mv "${PREFIX_TMP}-aptlst" "${DN_ROOTFS_DEBIAN}/etc/apt/sources.list"
         if [ ! "$?" = "0" ]; then
-            echo "Error in move apt/sources.list"
+            echo "Error in move apt/sources.list final: ${DN_ROOTFS_DEBIAN}/etc/apt/sources.list"
             exit 1
         fi
 
@@ -393,6 +401,9 @@ EOF
             echo "Error in unmount proc"
             exit 1
         fi
+
+        sudo chown -R root:root "${DN_ROOTFS_DEBIAN}"
+        touch "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE3"
     fi
 
     sudo umount "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
@@ -423,8 +434,10 @@ kali_rootfs_linuxkernel() {
             exit 1
         fi
 
+        my0_check_valid_path "${DN_ROOTFS_KERNEL}"
+        sudo chown -R ${USER} "${DN_ROOTFS_KERNEL}"
         # install kernel
-        make -j $CORES modules_install INSTALL_MOD_PATH=${DN_ROOTFS_KERNEL}
+        make -j $CORES modules_install INSTALL_MOD_PATH="${DN_ROOTFS_KERNEL}"
         if [ "$?" = "0" ]; then
             touch "${PREFIX_TMP}-FLG_KERNEL_COMPILE_CORE"
         else
@@ -457,6 +470,7 @@ EOF
     chmod 755 ${DN_ROOTFS_KERNEL}/scripts/rpi-wiggle.sh
 fi
 
+    sudo chown -R root:root "${DN_ROOTFS_KERNEL}"
 }
 
 rsync_and_verify() {
@@ -709,10 +723,18 @@ prepare_rpi2_kernel () {
     git pull --all
 
     patch -p1 --no-backup-if-mismatch < ${srcdir}/${PATCH_MAC80211}
+    if [ ! "$?" = "0" ]; then
+        echo "error in patch ${PATCH_MAC80211}"
+        exit 1
+    fi
     touch .scmversion
 
     cp ${srcdir}/${CONFIG_KERNEL} .config
     patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
+    if [ ! "$?" = "0" ]; then
+        echo "error in patch ${PATCH_CONFIG_KERNEL}"
+        exit 1
+    fi
 }
 
 prepare() {
