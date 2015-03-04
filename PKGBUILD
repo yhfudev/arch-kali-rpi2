@@ -460,6 +460,9 @@ if [ 1 = 0 ]; then
     sudo cp arch/arm/boot/uImage arch/arm/boot/dts/meson8b_odroidc.dtb "${DN_BOOT}"
 
 else
+    my0_check_valid_path "${DN_ROOTFS_KERNEL}"
+    sudo mkdir -p "${DN_BOOT}"
+    sudo chown -R ${USER} "${DN_BOOT}"
     cp -rf ${srcdir}/firmware-raspberrypi-git/boot/* ${DN_BOOT}
     cp arch/arm/boot/zImage ${DN_BOOT}/kernel.img
 
