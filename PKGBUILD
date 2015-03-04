@@ -540,7 +540,7 @@ prepare_rpi2_kernel () {
 
 prepare() {
     my_setevn
-    #rm -f "${FN_IMAGE}" ${PREFIX_TMP}*
+    rm -f "${FN_IMAGE}" ${PREFIX_TMP}*
 
     rm -rf ${DN_BOOT}
     rm -rf ${DN_ROOTFS_RPI2}
