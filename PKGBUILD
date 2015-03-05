@@ -34,12 +34,14 @@ ARCHITECTURE="armel"
 PATCH_MAC80211="kali-wifi-injection-3.18.patch"
 CONFIG_KERNEL="kali-arm-build-scripts-git/kernel-configs/rpi-3.12.config"
 PATCH_CONFIG_KERNEL="kali-arm-build-scripts-git/patches/rpi-kernel-config.patch"
+FN_RPI_KERNEL=kernel.img
 else
 # config for Raspberry Pi 2
 ARCHITECTURE="armhf"
 PATCH_MAC80211="kali-wifi-injection-3.18.patch"
 CONFIG_KERNEL="rpi2-3.19.config"
 PATCH_CONFIG_KERNEL="rpi-kernel-config-3.19.patch"
+FN_RPI_KERNEL=kernel7.img
 fi
 
 # Package installations for various sections.
@@ -52,7 +54,7 @@ fi
 # image, keep that in mind.
 PACKAGES_ARM="abootimg cgpt fake-hwclock ntpdate vboot-utils vboot-kernel-utils uboot-mkimage"
 PACKAGES_BASE="kali-menu kali-defaults initramfs-tools sudo parted e2fsprogs usbutils"
-PACKAGES_DESKTOP="xfce4 network-manager network-manager-gnome xserver-xorg-video-fbdev"
+PACKAGES_DESKTOP="xfce4 xfce4-goodies network-manager network-manager-gnome xserver-xorg-video-fbdev"
 PACKAGES_TOOLS="passing-the-hash winexe aircrack-ng hydra john sqlmap wireshark libnfc-bin mfoc nmap ethtool"
 PACKAGES_SERVICES="openssh-server apache2"
 PACKAGES_EXTRAS="iceweasel wpasupplicant"
@@ -464,7 +466,8 @@ else
     sudo mkdir -p "${DN_BOOT}"
     sudo chown -R ${USER} "${DN_BOOT}"
     cp -rf ${srcdir}/firmware-raspberrypi-git/boot/* ${DN_BOOT}
-    cp arch/arm/boot/zImage ${DN_BOOT}/kernel.img
+
+    cp arch/arm/boot/zImage ${DN_BOOT}/${FN_RPI_KERNEL}
 
     cat << EOF > ${DN_BOOT}/cmdline.txt
 dwc_otg.lpm_enable=0 console=ttyAMA0,115200 kgdboc=ttyAMA0,115200 console=tty1 elevator=deadline root=/dev/mmcblk0p2 rootfstype=ext4 rootwait
@@ -621,12 +624,7 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
         exit 1
     fi
 
-    # Clean up all the temporary build stuff and remove the directories.
-    # Comment this out to keep things around if you want to see what may have gone
-    # wrong.
-    #echo "Cleaning up the temporary build files..."
-    #rm -rf ${basedir}/kernel ${basedir}/bootp ${basedir}/root ${basedir}/kali-${MACHINEARCH} ${basedir}/boot ${basedir}/tools ${basedir}/patches
-
+if [ 0 = 1 ]; then
     # If you're building an image for yourself, comment all of this out, as you
     # don't need the sha1sum or to compress the image, since you will be testing it
     # soon.
@@ -643,6 +641,9 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
             (cd $(dirname ${FN_IMAGE}.xz) && sha1sum $(basename ${FN_IMAGE}.xz) > ${FN_IMAGE}.xz.sha1sum)
         fi
     fi
+fi
+
+
 fi
 }
 
@@ -723,7 +724,7 @@ my_setevn() {
 
 prepare_rpi2_kernel () {
     # linux kernel for Raspberry Pi 2
-    cd "$srcdir/linux-raspberrypi-git"
+    cd "${srcdir}/linux-raspberrypi-git"
     git submodule init
     git submodule update
     git pull --all
@@ -735,17 +736,21 @@ prepare_rpi2_kernel () {
     fi
     touch .scmversion
 
-    cp ${srcdir}/${CONFIG_KERNEL} .config
+    make mrproper
+    make bcmrpi_defconfig # generate .config
+    cp ${srcdir}/${CONFIG_KERNEL} .config # or use ours
     patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
     if [ ! "$?" = "0" ]; then
         echo "error in patch ${PATCH_CONFIG_KERNEL}"
         exit 1
     fi
+    make modules_prepare
+    cp "${srcdir}/firmware-raspberrypi-git/extra/Module.symvers" . # copy Module.sysmvers to the linux directory
 }
 
 prepare() {
     my_setevn
-    rm -f "${FN_IMAGE}" ${PREFIX_TMP}*
+    #rm -f "${FN_IMAGE}" ${PREFIX_TMP}*
 
     rm -rf ${DN_BOOT}
     rm -rf ${DN_ROOTFS_KERNEL}
