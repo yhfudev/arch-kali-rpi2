@@ -50,8 +50,9 @@ Features
 
 * Supports the latest Raspberry Pi 2
 * Fix X window frozen problem caused by kernel module mismatch
+* automatically download and install prerequisites
+* automatically download, setup, and cache source/tool trees
 * Supports dpkg cache, so you won't wait after the first run of this software
-* Supports multiple linux distributions, such Debian, Arch, or extended by you
-
+* Supports multiple linux distributions, such Debian, Arch (or Redhat, not test yet)
 
 That's all. Have fun!
