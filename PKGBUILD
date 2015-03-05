@@ -147,7 +147,7 @@ kali_rootfs_debootstrap() {
     shift
 
     # the apt cache folder
-    DN_APT_CACHE="${srcdir}/apt-cache-kali-${MACHINEARCH}"
+    DN_APT_CACHE="${SRCPKGDEST}/apt-cache-kali-${MACHINEARCH}"
     mkdir -p "${DN_APT_CACHE}"
     mkdir -p "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
@@ -643,7 +643,6 @@ if [ 0 = 1 ]; then
     fi
 fi
 
-
 fi
 }
 
@@ -736,7 +735,7 @@ prepare_rpi2_kernel () {
     fi
     touch .scmversion
 
-    make mrproper
+    #make mrproper
     make bcmrpi_defconfig # generate .config
     cp ${srcdir}/${CONFIG_KERNEL} .config # or use ours
     patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
@@ -744,8 +743,9 @@ prepare_rpi2_kernel () {
         echo "error in patch ${PATCH_CONFIG_KERNEL}"
         exit 1
     fi
-    make modules_prepare
-    cp "${srcdir}/firmware-raspberrypi-git/extra/Module.symvers" . # copy Module.sysmvers to the linux directory
+
+    #make modules_prepare
+    #cp "${srcdir}/firmware-raspberrypi-git/extra/Module.symvers" . # copy Module.sysmvers to the linux directory
 }
 
 prepare() {
