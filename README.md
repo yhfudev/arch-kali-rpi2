@@ -23,7 +23,7 @@ Install to SD card by:
 
 Config
 ------
-You may be also interest in config or install other packages after boot the Kali:
+You may be also interest in config or install other packages after booting the Kali:
 
     # expanded the image to the full size
     apt-get install parted sudo
