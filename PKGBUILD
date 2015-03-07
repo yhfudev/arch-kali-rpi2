@@ -12,14 +12,15 @@ depends=(
     )
 makedepends=(
     'pixz'
-    'git' 'bc' 'gcc-libs' 'bash' 'ncurses'
+    'git' 'bc' 'gcc-libs' 'bash'
+    'ncurses' 'lzop' 'uboot-tools' # for kernel
     'qemu' 'qemu-user-static-exp' 'binfmt-support' # cross compile and chroot
     'debootstrap' # to create debian rootfs
     'parted' 'dosfstools'
     'yaourt' 'multipath-tools' # for kpartx, in AUR, you need to use yaourt to install it
     #'lib32-libstdc++5' 'lib32-zlib' # for 32 bit compiler
     'base-devel' 'abs' 'fakeroot'
-    # 'kernel-package' # debian packages
+    # 'kernel-package' # debian packages, include make-kpkg
     )
 #install="$pkgname.install"
 #PKGEXT=.pkg.tar.xz
