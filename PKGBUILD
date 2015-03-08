@@ -707,8 +707,10 @@ my_setevn() {
 
     export FN_IMAGE="${srcdir}/${pkgname}-${pkgver}-${MACHINEARCH}.img"
 
-    export DN_TOOLCHAIN_UBOOT="${srcdir}/toolchains-uboot-${MACHINEARCH}"
-    export DN_TOOLCHAIN_KERNEL="${srcdir}/toolchains-kernel-${MACHINEARCH}"
+    #export DN_TOOLCHAIN_UBOOT="${srcdir}/toolchains-uboot-${MACHINEARCH}"
+    #export DN_TOOLCHAIN_KERNEL="${srcdir}/toolchains-kernel-${MACHINEARCH}"
+    export DN_TOOLCHAIN_UBOOT="${srcdir}/"
+    export DN_TOOLCHAIN_KERNEL="${srcdir}/"
 
     DN_ROOTFS_KERNEL="${srcdir}/rootfs-kernel-${MACHINEARCH}-${pkgname}"
     DN_BOOT="${DN_ROOTFS_KERNEL}/boot"
