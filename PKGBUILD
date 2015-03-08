@@ -36,6 +36,7 @@ PATCH_MAC80211="kali-wifi-injection-3.18.patch"
 CONFIG_KERNEL="kali-arm-build-scripts-git/kernel-configs/rpi-3.12.config"
 PATCH_CONFIG_KERNEL="kali-arm-build-scripts-git/patches/rpi-kernel-config.patch"
 FN_RPI_KERNEL=kernel.img
+MAKE_CONFIG=bcmrpi_defconfig
 else
 # config for Raspberry Pi 2
 ARCHITECTURE="armhf"
@@ -43,6 +44,7 @@ PATCH_MAC80211="kali-wifi-injection-3.18.patch"
 CONFIG_KERNEL="rpi2-3.19.config"
 PATCH_CONFIG_KERNEL="rpi-kernel-config-3.19.patch"
 FN_RPI_KERNEL=kernel7.img
+MAKE_CONFIG=bcm2709_defconfig
 fi
 
 # Package installations for various sections.
@@ -743,7 +745,7 @@ prepare_rpi2_kernel () {
     touch .scmversion
 
     #make mrproper
-    make bcmrpi_defconfig # generate .config
+    make ${MAKE_CONFIG} # generate .config
     cp ${srcdir}/${CONFIG_KERNEL} .config # or use ours
     patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
     if [ ! "$?" = "0" ]; then
