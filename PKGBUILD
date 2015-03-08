@@ -282,9 +282,11 @@ EOF
         echo "[DBG] SKIP debootstrap state 3"
 
     else
+        #sudo mkdir -p "${DN_ROOTFS_DEBIAN}/sys"
         #sudo mkdir -p "${DN_ROOTFS_DEBIAN}/proc"
         #sudo mkdir -p "${DN_ROOTFS_DEBIAN}/dev/"
         #sudo mkdir -p "${DN_ROOTFS_DEBIAN}/dev/pts"
+        sudo mount -o bind /sys/ "${DN_ROOTFS_DEBIAN}/sys/"
         sudo mount -t proc proc "${DN_ROOTFS_DEBIAN}/proc"
         if [ ! "$?" = "0" ]; then
             echo "Error in mount proc"
@@ -408,6 +410,7 @@ EOF
             echo "Error in unmount proc"
             exit 1
         fi
+        sudo umount "${DN_ROOTFS_DEBIAN}/sys/"
 
         sudo chown -R root:root "${DN_ROOTFS_DEBIAN}"
         touch "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE3"
@@ -435,7 +438,9 @@ kali_rootfs_linuxkernel() {
         # compile linux kernel for Raspberry Pi 2
         make clean
         make -j $CORES
-        if [ ! "$?" = "0" ]; then
+        RET=$?
+        if [ ! "${RET}" = "0" ]; then
+            echo "compiling linux kernel return $RET"
             echo "Error in compiling linux kernel"
             exit 1
         fi
@@ -725,6 +730,9 @@ my_setevn() {
         unset CROSS_COMPILE
     fi
 
+    mkdir -p "${DN_ROOTFS_KERNEL}"
+    mkdir -p "${DN_BOOT}"
+    mkdir -p "${DN_ROOTFS_DEBIAN}"
     my0_check_valid_path "${DN_ROOTFS_KERNEL}"
     my0_check_valid_path "${DN_BOOT}"
     my0_check_valid_path "${DN_ROOTFS_DEBIAN}"
