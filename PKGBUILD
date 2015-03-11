@@ -74,9 +74,16 @@ IMGCONTAINER_SIZE=3000 # Size of image in megabytes
 export INSTALL_MIRROR=http.kali.org
 export INSTALL_SECURITY=security.kali.org
 
+USE_GIT_REPO=1
+
+GITCOMMIT_LINUX=780e68130fba82a525b89e85f051c91b7a508e52
+DNSRC_LINUX=linux-${GITCOMMIT_LINUX}
+
+DNSRC_LINUX=linux-raspberrypi-git
+
 source=(
         "kali-arm-build-scripts-git::git+https://github.com/yhfudev/kali-arm-build-scripts.git"
-        "linux-raspberrypi-git::git+https://github.com/raspberrypi/linux.git"
+        "${DNSRC_LINUX}::git+https://github.com/raspberrypi/linux.git" # "https://github.com/raspberrypi/linux/archive/${GITCOMMIT_LINUX}.tar.gz"
         "tools-raspberrypi-git::git+https://github.com/raspberrypi/tools.git"
         "firmware-raspberrypi-git::git+https://github.com/raspberrypi/firmware.git"
         "firmware-linux-git::git+https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git"
@@ -151,7 +158,7 @@ kali_rootfs_debootstrap() {
     shift
 
     # the apt cache folder
-    DN_APT_CACHE="${SRCPKGDEST}/apt-cache-kali-${MACHINEARCH}"
+    DN_APT_CACHE="${srcdir}/apt-cache-kali-${MACHINEARCH}"
     mkdir -p "${DN_APT_CACHE}"
     mkdir -p "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
@@ -179,7 +186,7 @@ kali_rootfs_debootstrap() {
     else
         # create the rootfs - not much to modify here, except maybe the hostname.
         echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
-        sudo debootstrap --foreign --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
+        sudo debootstrap --foreign --no-check-gpg --include=ca-certificates,ssh,vim,locales,ntpdate,usbmount,initramfs-tools --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
         if [ "$?" = "0" ]; then
             touch "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE1"
         else
@@ -189,7 +196,7 @@ kali_rootfs_debootstrap() {
     fi
 
     if [ "${ISCROSS}" = "1" ]; then
-        sudo cp /usr/bin/qemu-arm-static "${DN_ROOTFS_DEBIAN}/usr/bin/"
+        sudo cp `which qemu-arm-static` "${DN_ROOTFS_DEBIAN}/usr/bin/"
     fi
 
     echo "[DBG] debootstrap state 2"
@@ -207,6 +214,9 @@ kali_rootfs_debootstrap() {
     fi
 
     echo "[DBG] debootstrap state 2.5"
+    sudo rm "${DN_ROOTFS_DEBIAN}/etc/hostname"
+    sudo rm ${DN_ROOTFS_DEBIAN}/etc/ssh/ssh_host_*
+
     # Create sources.list
     cat << EOF > "${PREFIX_TMP}-aptlst1"
 deb http://${INSTALL_MIRROR}/kali kali main contrib non-free
@@ -274,6 +284,18 @@ EOF
     sudo mv "${PREFIX_TMP}-deb" "${DN_ROOTFS_DEBIAN}/debconf.set"
     if [ ! "$?" = "0" ]; then
         echo "Error in move script debconf.set"
+        exit 1
+    fi
+
+cat << EOF > "${PREFIX_TMP}-fstab"
+/dev/mmcblk0p2 / auto errors=remount-ro 0 1
+/dev/mmcblk0p1 /boot auto defaults 0 0
+EOF
+    chmod 644 "${PREFIX_TMP}-fstab"
+    sudo chown root:root "${PREFIX_TMP}-fstab"
+    sudo mv "${PREFIX_TMP}-fstab" "${DN_ROOTFS_DEBIAN}/etc/fstab"
+    if [ ! "$?" = "0" ]; then
+        echo "Error in move etc/fstab"
         exit 1
     fi
 
@@ -426,25 +448,20 @@ EOF
 kali_rootfs_linuxkernel() {
     # compile and install linux kernel for Raspberry Pi 2, install rpi2 specified tools
 
-    CORES=$(grep -c processor /proc/cpuinfo)
-    if [ "$CORES" = "" ]; then
-        CORES=2
-    fi
-
     if [[ -f "${PREFIX_TMP}-FLG_KERNEL_COMPILE_CORE" ]]; then
         echo "[DBG] SKIP compile kernel core"
 
     else
         # compile linux kernel for Raspberry Pi 2
-        make clean
-        make -j $CORES
+        #make clean
+        make -j $MACHINECORES
         RET=$?
         if [ ! "${RET}" = "0" ]; then
             echo "compiling linux kernel return $RET"
             echo "Error in compiling linux kernel"
             exit 1
         fi
-        make -j $CORES modules
+        make -j $MACHINECORES modules
         if [ ! "$?" = "0" ]; then
             echo "Error in compiling linux kernel modules"
             exit 1
@@ -453,7 +470,7 @@ kali_rootfs_linuxkernel() {
         my0_check_valid_path "${DN_ROOTFS_KERNEL}"
         sudo chown -R ${USER} "${DN_ROOTFS_KERNEL}"
         # install kernel
-        make -j $CORES modules_install INSTALL_MOD_PATH="${DN_ROOTFS_KERNEL}"
+        make -j $MACHINECORES modules_install INSTALL_MOD_PATH="${DN_ROOTFS_KERNEL}"
         if [ "$?" = "0" ]; then
             touch "${PREFIX_TMP}-FLG_KERNEL_COMPILE_CORE"
         else
@@ -473,7 +490,9 @@ kali_rootfs_linuxkernel() {
 if [ 1 = 0 ]; then
     make uImage
     make dtbs
-    sudo cp arch/arm/boot/uImage arch/arm/boot/dts/meson8b_odroidc.dtb "${DN_BOOT}"
+    sudo mkdir -p "${DN_BOOT}/dtbs/"
+    sudo cp arch/arm/boot/uImage "${DN_BOOT}/"
+    sudo cp arch/arm/boot/dts/meson8b_odroidc.dtb "${DN_BOOT}/dtbs/"
 
 else
     my0_check_valid_path "${DN_ROOTFS_KERNEL}"
@@ -565,6 +584,7 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
         echo "Error in loop device"
         exit 1
     fi
+    #partprobe "${DEV_LOOP}" # to get /dev/loop0p1 ...
     bootp="/dev/mapper/${LOOPNAME}p1"
     rootp="/dev/mapper/${LOOPNAME}p2"
 
@@ -626,7 +646,15 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
     fi
 
     # Enable login over serial
+if [ 1 = 1 ]; then
     echo "echo 'T0:23:respawn:/sbin/agetty -L ttyAMA0 115200 vt100' >> ${DN_ROOT}/etc/inittab" | sudo sh
+else
+    echo "echo 'T0:123:respawn:/sbin/getty -L ttyS0 115200 vt100' >> ${DN_ROOT}/etc/inittab" | sudo sh
+fi
+
+    # if use hdr, uncomment following
+    #ROOT_UUID=$(blkid $rootp | sed -n 's/.*UUID=\"\([^\"]*\)\".*/\1/p')
+    #sed -i -e "s/root=[^\w ]*/root=${ROOT_UUID}/" "${DN_BOOT}/boot.int"
 
     # Unmount partitions
     sudo umount ${DN_BOOT}
@@ -705,6 +733,11 @@ my_setevn() {
     esac
     export MACHINEARCH="${MACHINE}"
 
+    MACHINECORES=$(grep -c processor /proc/cpuinfo)
+    if [ "$MACHINECORES" = "" ]; then
+        MACHINECORES=2
+    fi
+
     export FN_IMAGE="${srcdir}/${pkgname}-${pkgver}-${MACHINEARCH}.img"
 
     #export DN_TOOLCHAIN_UBOOT="${srcdir}/toolchains-uboot-${MACHINEARCH}"
@@ -742,10 +775,12 @@ my_setevn() {
 
 prepare_rpi2_kernel () {
     # linux kernel for Raspberry Pi 2
-    cd "${srcdir}/linux-raspberrypi-git"
-    git submodule init
-    git submodule update
-    git pull --all
+    cd "${srcdir}/${DNSRC_LINUX}"
+    if [ "${USE_GIT_REPO}" = "1" ]; then
+        git submodule init
+        git submodule update
+        git pull --all
+    fi
 
     patch -p1 --no-backup-if-mismatch < ${srcdir}/${PATCH_MAC80211}
     if [ ! "$?" = "0" ]; then
@@ -806,7 +841,7 @@ build() {
         unset CROSS_COMPILE
     fi
     echo "Build Linux kernel ..."
-    cd "${srcdir}/linux-raspberrypi-git"
+    cd "${srcdir}/${DNSRC_LINUX}"
     kali_rootfs_linuxkernel
     echo "Build Linux kernel DONE!"
 }
