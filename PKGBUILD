@@ -7,11 +7,13 @@ pkgdesc="Raspberry Pi 2 Kali image"
 arch=('i686' 'x86_64' 'arm')
 url="https://github.com/yhfudev/arch-kali-rpi2.git"
 license=('GPL')
-depends=(
+
+optdepends=(
     'pixz'
+    'bmap-tools'
     )
+
 makedepends=(
-    'pixz'
     'git' 'bc' 'gcc-libs' 'bash'
     'ncurses' 'lzop' 'uboot-tools' # for kernel
     'qemu' 'qemu-user-static-exp' 'binfmt-support' # cross compile and chroot
@@ -73,6 +75,13 @@ IMGCONTAINER_SIZE=3000 # Size of image in megabytes
 # After generating the rootfs, we set the sources.list to the default settings.
 export INSTALL_MIRROR=http.kali.org
 export INSTALL_SECURITY=security.kali.org
+
+# the /boot path for u-boot
+MNTPOINT_BOOT_FIRMWARE=/boot/firmware/
+# the root fs / label
+DISKLABEL_ROOTFS=rootfs
+# the /boot fs label
+DISKLABEL_BOOTFS=BOOTFS
 
 USE_GIT_REPO=1
 
@@ -288,8 +297,12 @@ EOF
     fi
 
 cat << EOF > "${PREFIX_TMP}-fstab"
-/dev/mmcblk0p2 / auto errors=remount-ro 0 1
-/dev/mmcblk0p1 /boot auto defaults 0 0
+LABEL=${DISKLABEL_ROOTFS}   /           auto    defaults,noatime,nodiratime,errors=remount-ro  0       1
+LABEL=${DISKLABEL_BOOTFS}   ${MNTPOINT_BOOT_FIRMWARE}  auto    defaults,ro,owner,flush,umask=000        0       2
+
+tmpfs           /tmp        tmpfs   nodev,nosuid,size=10%,mode=1777     0       0
+#tmpfs           /var/log    tmpfs   nodev,nosuid,size=20%,mode=1755     0       0
+proc            /proc       proc    defaults                            0       0
 EOF
     chmod 644 "${PREFIX_TMP}-fstab"
     sudo chown root:root "${PREFIX_TMP}-fstab"
@@ -298,6 +311,8 @@ EOF
         echo "Error in move etc/fstab"
         exit 1
     fi
+    # Stop the boot-sequence whinging about /tmp being read-only before /tmp is mounted:
+    touch "${DN_ROOTFS_DEBIAN}/tmp/.tmpfs"
 
     echo "[DBG] debootstrap state 3"
     if [[ -f "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE3" ]]; then
@@ -340,10 +355,20 @@ apt-get --yes --force-yes install locales-all
 
 debconf-set-selections /debconf.set
 rm -f /debconf.set
+
 apt-get update
 apt-get --yes --force-yes install git-core binutils ca-certificates initramfs-tools uboot-mkimage
 apt-get --yes --force-yes install locales console-common less nano git
+
+sed -i -e "s|^[#\w ]\{1,2\}en_US|en_US|g" /etc/locale.gen
+locale-gen en_US en_US.UTF-8 "en_US ISO-8859-1"
+update-locale LANG="en_US.UTF-8" LANGUAGE="en_US" LC_ALL="en_US.UTF-8"
+#dpkg-reconfigure tzdata
+#dpkg-reconfigure locales
+
 echo "root:toor" | chpasswd
+#USER1=pi ; useradd -m -s /bin/bash -G adm,sudo,plugdev,audio,video,cdrom,floppy,dip \${USER1} && echo "\${USER1}:\${USER1}" | chpasswd
+
 sed -i -e 's/KERNEL\!=\"eth\*|/KERNEL\!=\"/' /lib/udev/rules.d/75-persistent-net-generator.rules
 rm -f /etc/udev/rules.d/70-persistent-net.rules
 apt-get --yes --force-yes install $PACKAGES
@@ -369,6 +394,7 @@ EOF
             exit 1
         fi
 
+        # unmount the cache folder befor clean up, we may reuse the cache for other builds.
         sudo umount "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
         cat << EOF > "${PREFIX_TMP}-aptlst"
@@ -393,6 +419,8 @@ export DEBIAN_FRONTEND=noninteractive
 rm -rf /root/.bash_history
 apt-get update
 apt-get clean
+/etc/init.d/dbus stop
+/etc/init.d/ssh  stop
 rm -f /debconf.set
 rm -f /0
 rm -f /hs_err*
@@ -411,6 +439,7 @@ EOF
             echo "Error in chroot cleanup"
             exit 1
         fi
+        sudo rm -f "${DN_ROOTFS_DEBIAN}/usr/bin/qemu*"
 
         sudo umount "${DN_ROOTFS_DEBIAN}/proc/sys/fs/binfmt_misc"
         #if [ ! "$?" = "0" ]; then
@@ -438,6 +467,7 @@ EOF
         touch "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE3"
     fi
 
+    # make sure it umounted
     sudo umount "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
     if [ "${ISCROSS}" = "1" ]; then
@@ -490,19 +520,19 @@ kali_rootfs_linuxkernel() {
 if [ 1 = 0 ]; then
     make uImage
     make dtbs
-    sudo mkdir -p "${DN_BOOT}/dtbs/"
-    sudo cp arch/arm/boot/uImage "${DN_BOOT}/"
-    sudo cp arch/arm/boot/dts/meson8b_odroidc.dtb "${DN_BOOT}/dtbs/"
+    sudo mkdir -p "${DN_BOOT_4KERNEL}/dtbs/"
+    sudo cp arch/arm/boot/uImage "${DN_BOOT_4KERNEL}/"
+    sudo cp arch/arm/boot/dts/meson8b_odroidc.dtb "${DN_BOOT_4KERNEL}/dtbs/"
 
 else
     my0_check_valid_path "${DN_ROOTFS_KERNEL}"
-    sudo mkdir -p "${DN_BOOT}"
-    sudo chown -R ${USER} "${DN_BOOT}"
-    cp -rf ${srcdir}/firmware-raspberrypi-git/boot/* ${DN_BOOT}
+    sudo mkdir -p "${DN_BOOT_4KERNEL}"
+    sudo chown -R ${USER} "${DN_BOOT_4KERNEL}"
+    cp -rf ${srcdir}/firmware-raspberrypi-git/boot/* ${DN_BOOT_4KERNEL}
 
-    cp arch/arm/boot/zImage ${DN_BOOT}/${FN_RPI_KERNEL}
+    cp arch/arm/boot/zImage ${DN_BOOT_4KERNEL}/${FN_RPI_KERNEL}
 
-    cat << EOF > ${DN_BOOT}/cmdline.txt
+    cat << EOF > ${DN_BOOT_4KERNEL}/cmdline.txt
 dwc_otg.lpm_enable=0 console=ttyAMA0,115200 kgdboc=ttyAMA0,115200 console=tty1 elevator=deadline root=/dev/mmcblk0p2 rootfstype=ext4 rootwait
 EOF
     # rpi-wiggle
@@ -521,7 +551,9 @@ rsync_and_verify() {
     PARAM_DN_DST="$1"
     shift
 
-    sudo rsync -HPavz -q "${PARAM_DN_SRC}" "${PARAM_DN_DST}"
+    OPTS_OTHER="--devices --specials --acls --xattrs --sparse"
+
+    sudo rsync -HPavz ${OPTS_OTHER} -q "${PARAM_DN_SRC}" "${PARAM_DN_DST}"
 
 if [ 1 = 0 ]; then
     # verify the files
@@ -593,12 +625,12 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
 
     else
         echo "Create file systems"
-        sudo mkfs.vfat -n boot $bootp
+        sudo mkfs.vfat -n ${DISKLABEL_BOOTFS} $bootp
         if [ ! "$?" = "0" ]; then
             echo "error in format boot"
             exit 1
         fi
-        sudo mkfs.ext4 -L root $rootp
+        sudo mkfs.ext4 -F -O ^has_journal -E stride=2,stripe-width=1024 -b 4096 -L ${DISKLABEL_ROOTFS} $rootp
         if [ ! "$?" = "0" ]; then
             echo "error in format root"
             exit 1
@@ -615,13 +647,13 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
         exit 1
     fi
 
-    DN_BOOT=${DN_ROOT}/boot
-    sudo mkdir -p ${DN_BOOT}
+    DN_BOOT_4IMAGE="${DN_ROOT}${MNTPOINT_BOOT_FIRMWARE}"
+    sudo mkdir -p ${DN_BOOT_4IMAGE}
     if [ ! "$?" = "0" ]; then
-        echo "error in mkdir ${DN_ROOT}"
+        echo "error in mkdir ${DN_BOOT_4IMAGE}"
         exit 1
     fi
-    sudo mount $bootp ${DN_BOOT}
+    sudo mount $bootp ${DN_BOOT_4IMAGE}
     if [ ! "$?" = "0" ]; then
         echo "error in mount boot"
         exit 1
@@ -654,10 +686,10 @@ fi
 
     # if use hdr, uncomment following
     #ROOT_UUID=$(blkid $rootp | sed -n 's/.*UUID=\"\([^\"]*\)\".*/\1/p')
-    #sed -i -e "s/root=[^\w ]*/root=${ROOT_UUID}/" "${DN_BOOT}/boot.int"
+    #sed -i -e "s/root=[^\w ]*/root=${ROOT_UUID}/" "${DN_BOOT_4IMAGE}/boot.int"
 
     # Unmount partitions
-    sudo umount ${DN_BOOT}
+    sudo umount ${DN_BOOT_4IMAGE}
     sudo umount ${DN_ROOT}
     sudo kpartx -dv ${DEV_LOOP}
     sudo losetup -d ${DEV_LOOP}
@@ -666,24 +698,26 @@ fi
         exit 1
     fi
 
-if [ 0 = 1 ]; then
     # If you're building an image for yourself, comment all of this out, as you
     # don't need the sha1sum or to compress the image, since you will be testing it
     # soon.
     echo "Generating sha1sum for ${FN_IMAGE}"
     (cd $(dirname ${FN_IMAGE}) && sha1sum $(basename ${FN_IMAGE}) > ${FN_IMAGE}.sha1sum)
-    # Don't pixz on 32bit, there isn't enough memory to compress the images.
-    MACHINE_TYPE=$(uname -m)
-    if [ ${MACHINE_TYPE} == 'x86_64' ]; then
-        echo "Compressing ${FN_IMAGE}"
-        pixz ${FN_IMAGE} ${FN_IMAGE}.xz
-        if [ "$?" = "0" ]; then
-            rm -f ${FN_IMAGE}
-            echo "Generating sha1sum for ${FN_IMAGE}.xz"
-            (cd $(dirname ${FN_IMAGE}.xz) && sha1sum $(basename ${FN_IMAGE}.xz) > ${FN_IMAGE}.xz.sha1sum)
+    if which bmaptool; then
+        bmaptool create -o ${FN_IMAGE}.bmap ${FN_IMAGE}
+    else if which pixz; then
+        # Don't pixz on 32bit, there isn't enough memory to compress the images.
+        HW=$(uname -m)
+        if [ ${HW} == 'x86_64' ]; then
+            echo "Compressing ${FN_IMAGE}"
+            pixz ${FN_IMAGE} ${FN_IMAGE}.xz
+            if [ "$?" = "0" ]; then
+                rm -f ${FN_IMAGE}
+                echo "Generating sha1sum for ${FN_IMAGE}.xz"
+                (cd $(dirname ${FN_IMAGE}.xz) && sha1sum $(basename ${FN_IMAGE}.xz) > ${FN_IMAGE}.xz.sha1sum)
+            fi
         fi
-    fi
-fi
+    fi fi
 
 fi
 }
@@ -746,7 +780,7 @@ my_setevn() {
     export DN_TOOLCHAIN_KERNEL="${srcdir}/"
 
     DN_ROOTFS_KERNEL="${srcdir}/rootfs-kernel-${MACHINEARCH}-${pkgname}"
-    DN_BOOT="${DN_ROOTFS_KERNEL}/boot"
+    DN_BOOT_4KERNEL="${DN_ROOTFS_KERNEL}${MNTPOINT_BOOT_FIRMWARE}"
     DN_ROOTFS_DEBIAN="${srcdir}/rootfs-kali-${MACHINEARCH}-${pkgname}"
 
     export ARCH=arm
@@ -766,10 +800,10 @@ my_setevn() {
     fi
 
     mkdir -p "${DN_ROOTFS_KERNEL}"
-    mkdir -p "${DN_BOOT}"
+    mkdir -p "${DN_BOOT_4KERNEL}"
     mkdir -p "${DN_ROOTFS_DEBIAN}"
     my0_check_valid_path "${DN_ROOTFS_KERNEL}"
-    my0_check_valid_path "${DN_BOOT}"
+    my0_check_valid_path "${DN_BOOT_4KERNEL}"
     my0_check_valid_path "${DN_ROOTFS_DEBIAN}"
 }
 
@@ -802,14 +836,129 @@ prepare_rpi2_kernel () {
     #cp "${srcdir}/firmware-raspberrypi-git/extra/Module.symvers" . # copy Module.sysmvers to the linux directory
 }
 
+prepare_rpi2_rootfs () {
+
+    # Set up firmware config
+    cat << EOF > ${DN_BOOT_4KERNEL}/config.txt
+# For more options and information see 
+# http://www.raspberrypi.org/documentation/configuration/config-txt.md
+# Some settings may impact device functionality. See link above for details
+
+# uncomment if you get no picture on HDMI for a default "safe" mode
+#hdmi_safe=1
+
+# uncomment this if your display has a black border of unused pixels visible
+# and your display can output without overscan
+#disable_overscan=1
+
+# uncomment the following to adjust overscan. Use positive numbers if console
+# goes off screen, and negative if there is too much border
+#overscan_left=16
+#overscan_right=16
+#overscan_top=16
+#overscan_bottom=16
+
+# uncomment to force a console size. By default it will be display's size minus
+# overscan.
+#framebuffer_width=1280
+#framebuffer_height=720
+
+# uncomment if hdmi display is not detected and composite is being output
+#hdmi_force_hotplug=1
+
+# uncomment to force a specific HDMI mode (this will force VGA)
+#hdmi_group=1
+#hdmi_mode=1
+
+# uncomment to force a HDMI mode rather than DVI. This can make audio work in
+# DMT (computer monitor) modes
+#hdmi_drive=2
+
+# uncomment to increase signal to HDMI, if you have interference, blanking, or
+# no display
+#config_hdmi_boost=4
+
+# uncomment for composite PAL
+#sdtv_mode=2
+
+#uncomment to overclock the arm. 700 MHz is the default.
+#arm_freq=800
+EOF
+    ln -sf firmware/config.txt "${DN_ROOTFS_KERNEL}/boot/config.txt"
+    echo 'dwc_otg.lpm_enable=0 console=tty1 root=/dev/mmcblk0p2 rootwait' > ${DN_BOOT_4KERNEL}/cmdline.txt
+    ln -sf firmware/cmdline.txt "${DN_ROOTFS_KERNEL}/boot/cmdline.txt"
+
+    # Load sound module on boot
+    cat << EOF > "${DN_ROOTFS_DEBIAN}/lib/modules-load.d/rpi2.conf"
+snd_bcm2835
+bcm2708_rng
+EOF
+
+    # Blacklist platform modules not applicable to the RPi2
+    cat << EOF > "${DN_ROOTFS_KERNEL}/etc/modprobe.d/rpi2.conf"
+blacklist snd_soc_pcm512x_i2c
+blacklist snd_soc_pcm512x
+blacklist snd_soc_tas5713
+blacklist snd_soc_wm8804
+EOF
+
+    cat << EOF > "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf"
+# X.Org X server configuration file for xfree86-video-mali
+
+Section "Device"
+        Identifier      "Mali-Fbdev"
+        Driver          "mali"
+        Option          "fbdev"         "/dev/fb0"
+        Option          "DRI2"            "true"
+        Option          "DRI2_PAGE_FLIP"  "false"
+        Option          "DRI2_WAIT_VSYNC" "false"
+        Option          "UMP_CACHED"      "true"
+        Option          "UMP_LOCK"        "false"
+        Option          "SWCursor"        "true"
+        Option          "HWCursor"        "false"
+EndSection
+
+Section "ServerFlags"
+        Option          "NoTrapSignals" "true"
+        Option          "DontZap"       "false"
+        Option          "BlankTime"     "0"
+        Option          "StandbyTime"   "0"
+        Option          "SuspendTime"   "0"
+        Option          "OffTime"       "0"
+EndSection
+
+Section "DRI"
+        Mode            0666
+EndSection
+EOF
+
+    cat << EOF > "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf.failsafe"
+Section "Device"
+	Identifier	"Configured Video Device"
+	Driver		"vesa"
+EndSection
+
+Section "Monitor"
+	Identifier	"Configured Monitor"
+EndSection
+
+Section "Screen"
+	Identifier	"Default Screen"
+	Monitor		"Configured Monitor"
+	Device		"Configured Video Device"
+EndSection
+EOF
+
+}
+
 prepare() {
     my_setevn
     #rm -f "${FN_IMAGE}" ${PREFIX_TMP}*
 
-    rm -rf ${DN_BOOT}
+    rm -rf ${DN_BOOT_4KERNEL}
     rm -rf ${DN_ROOTFS_KERNEL}
     #rm -rf ${DN_ROOTFS_DEBIAN}
-    mkdir -p ${DN_BOOT}
+    mkdir -p ${DN_BOOT_4KERNEL}
     mkdir -p ${DN_ROOTFS_KERNEL}
     mkdir -p ${DN_ROOTFS_DEBIAN}
 
@@ -819,6 +968,7 @@ prepare() {
     cd ${srcdir}
     # create rootfs
     kali_rootfs_debootstrap
+    prepare_rpi2_rootfs
     echo "Build rootfs DONE!"
 }
 
