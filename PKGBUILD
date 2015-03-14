@@ -58,12 +58,12 @@ fi
 # script will throw an error, but will still continue on, and create an unusable
 # image, keep that in mind.
 PACKAGES_ARM="abootimg cgpt fake-hwclock ntpdate vboot-utils vboot-kernel-utils uboot-mkimage"
-PACKAGES_BASE="kali-menu kali-defaults initramfs-tools sudo parted e2fsprogs usbutils"
+PACKAGES_BASE="kali-menu kali-defaults initramfs-tools sudo parted e2fsprogs usbutils nfs-common lsb-release"
 PACKAGES_DESKTOP="xfce4 network-manager network-manager-gnome xserver-xorg-video-fbdev"
 PACKAGES_TOOLS="passing-the-hash winexe aircrack-ng hydra john sqlmap wireshark libnfc-bin mfoc nmap ethtool"
 PACKAGES_SERVICES="openssh-server apache2"
 PACKAGES_EXTRAS="iceweasel wpasupplicant"
-#PACKAGES_ADDON="fruitywifi wifite xfce4-goodies"
+#PACKAGES_ADDON="fruitywifi wifite xfce4-goodies kali-linux-full"
 export PACKAGES="${PACKAGES_ARM} ${PACKAGES_BASE} ${PACKAGES_DESKTOP} ${PACKAGES_TOOLS} ${PACKAGES_SERVICES} ${PACKAGES_EXTRAS} ${PACKAGES_ADDON}"
 
 # the image container size
@@ -83,16 +83,14 @@ DISKLABEL_ROOTFS=rootfs
 # the /boot fs label
 DISKLABEL_BOOTFS=BOOTFS
 
-USE_GIT_REPO=1
-
-GITCOMMIT_LINUX=780e68130fba82a525b89e85f051c91b7a508e52
+GITCOMMIT_LINUX=5e3fb8358a4918c1c6c3ad0706da28c90ef7f737
 DNSRC_LINUX=linux-${GITCOMMIT_LINUX}
-
-DNSRC_LINUX=linux-raspberrypi-git
+USE_GIT_REPO=0
+#DNSRC_LINUX=linux-raspberrypi-git
 
 source=(
         "kali-arm-build-scripts-git::git+https://github.com/yhfudev/kali-arm-build-scripts.git"
-        "${DNSRC_LINUX}::git+https://github.com/raspberrypi/linux.git" # "https://github.com/raspberrypi/linux/archive/${GITCOMMIT_LINUX}.tar.gz"
+        "https://github.com/raspberrypi/linux/archive/${GITCOMMIT_LINUX}.tar.gz" # "${DNSRC_LINUX}::git+https://github.com/raspberrypi/linux.git"
         "tools-raspberrypi-git::git+https://github.com/raspberrypi/tools.git"
         "firmware-raspberrypi-git::git+https://github.com/raspberrypi/firmware.git"
         "firmware-linux-git::git+https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git"
@@ -378,6 +376,9 @@ update-rc.d ssh enable
 rm -f /usr/sbin/policy-rc.d
 rm -f /usr/sbin/invoke-rc.d
 dpkg-divert --remove --rename /usr/sbin/invoke-rc.d
+
+sed -i -e 's|^[# ]*NEED_STATD[ ]*=.*$|NEED_STATD=yes|' /etc/default/nfs-common
+update-rc.d rpcbind enable
 
 rm -f /third-stage
 EOF
@@ -705,7 +706,8 @@ fi
     (cd $(dirname ${FN_IMAGE}) && sha1sum $(basename ${FN_IMAGE}) > ${FN_IMAGE}.sha1sum)
     if which bmaptool; then
         bmaptool create -o ${FN_IMAGE}.bmap ${FN_IMAGE}
-    else if which pixz; then
+    fi
+    if which pixz; then
         # Don't pixz on 32bit, there isn't enough memory to compress the images.
         HW=$(uname -m)
         if [ ${HW} == 'x86_64' ]; then
@@ -717,7 +719,7 @@ fi
                 (cd $(dirname ${FN_IMAGE}.xz) && sha1sum $(basename ${FN_IMAGE}.xz) > ${FN_IMAGE}.xz.sha1sum)
             fi
         fi
-    fi fi
+    fi
 
 fi
 }
