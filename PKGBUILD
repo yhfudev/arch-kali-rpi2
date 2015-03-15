@@ -11,10 +11,11 @@ license=('GPL')
 optdepends=(
     'pixz'
     'bmap-tools'
+    'bsdtar'
     )
 
 makedepends=(
-    'git' 'bc' 'gcc-libs' 'bash'
+    'git' 'bc' 'gcc-libs' 'bash' 'sudo'
     'ncurses' 'lzop' 'uboot-tools' # for kernel
     'qemu' 'qemu-user-static-exp' 'binfmt-support' # cross compile and chroot
     'debootstrap' # to create debian rootfs
@@ -33,8 +34,7 @@ conflicts=('kali-rpi2')
 if [ 0 = 1 ]; then
 # config for Raspberry Pi 1
 ARCHITECTURE="armel"
-#PATCH_MAC80211="kali-arm-build-scripts-git/patches/kali-wifi-injection-3.12.patch"
-PATCH_MAC80211="kali-wifi-injection-3.18.patch"
+PATCH_MAC80211="kali-arm-build-scripts-git/patches/kali-wifi-injection-3.18.patch"
 CONFIG_KERNEL="kali-arm-build-scripts-git/kernel-configs/rpi-3.12.config"
 PATCH_CONFIG_KERNEL="kali-arm-build-scripts-git/patches/rpi-kernel-config.patch"
 FN_RPI_KERNEL=kernel.img
@@ -42,7 +42,7 @@ MAKE_CONFIG=bcmrpi_defconfig
 else
 # config for Raspberry Pi 2
 ARCHITECTURE="armhf"
-PATCH_MAC80211="kali-wifi-injection-3.18.patch"
+PATCH_MAC80211="kali-arm-build-scripts-git/patches/kali-wifi-injection-3.18.patch"
 CONFIG_KERNEL="rpi2-3.19.config"
 PATCH_CONFIG_KERNEL="rpi-kernel-config-3.19.patch"
 FN_RPI_KERNEL=kernel7.img
@@ -63,11 +63,12 @@ PACKAGES_DESKTOP="xfce4 network-manager network-manager-gnome xserver-xorg-video
 PACKAGES_TOOLS="passing-the-hash winexe aircrack-ng hydra john sqlmap wireshark libnfc-bin mfoc nmap ethtool"
 PACKAGES_SERVICES="openssh-server apache2"
 PACKAGES_EXTRAS="iceweasel wpasupplicant"
-#PACKAGES_ADDON="fruitywifi wifite xfce4-goodies kali-linux-full"
+#PACKAGES_ADDON="fruitywifi xfce4-goodies kali-linux-full"
 export PACKAGES="${PACKAGES_ARM} ${PACKAGES_BASE} ${PACKAGES_DESKTOP} ${PACKAGES_TOOLS} ${PACKAGES_SERVICES} ${PACKAGES_EXTRAS} ${PACKAGES_ADDON}"
 
 # the image container size
 IMGCONTAINER_SIZE=3000 # Size of image in megabytes
+#IMGCONTAINER_SIZE=7000 # MB, size of kali-linux-full
 
 # If you have your own preferred mirrors, set them here.
 # You may want to leave security.kali.org alone, but if you trust your local
@@ -95,7 +96,6 @@ source=(
         "firmware-raspberrypi-git::git+https://github.com/raspberrypi/firmware.git"
         "firmware-linux-git::git+https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git"
         "rpiwiggle-git::git+https://github.com/dweeber/rpiwiggle/"
-        "kali-wifi-injection-3.18.patch" #"mac80211.patch::https://raw.github.com/offensive-security/kali-arm-build-scripts/master/patches/kali-wifi-injection-3.12.patch"
         "rpi2-3.19.config"
         "rpi-kernel-config-3.19.patch"
         )
@@ -107,9 +107,8 @@ md5sums=(
          'SKIP'
          'SKIP'
          'SKIP'
-         '37b89f74e3f9f6c20295da564ece5b8f'
-         '95560f6b44bf10f75a7515dae9c79dd5'
-         'SKIP'
+         '95560f6b44bf10f75a7515dae9c79dd5' # rpi2-3.19.config
+         '285be432ee3a5a66086ba56bb18d7266' # rpi-kernel-config-3.19.patch
          )
 sha1sums=(
          'SKIP'
@@ -118,9 +117,8 @@ sha1sums=(
          'SKIP'
          'SKIP'
          'SKIP'
-         '48ce0c7886128fb068b70b5692b60a6c5aec0e96'
-         'c0c30c8d9c53cb6694d22c0aa92d7c28f1987463'
-         'SKIP'
+         'c0c30c8d9c53cb6694d22c0aa92d7c28f1987463' # rpi2-3.19.config
+         'eb2ebe665a77a483acc379da165bb9fb6437e078' # rpi-kernel-config-3.19.patch
          )
 
 pkgver() {
@@ -187,7 +185,7 @@ kali_rootfs_debootstrap() {
     sudo mount -o bind "${DN_APT_CACHE}" "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
     echo "[DBG] debootstrap state 1"
-    if [[ -f "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE1" ]]; then
+    if [ -f "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE1" ]; then
         echo "[DBG] SKIP debootstrap state 1"
 
     else
@@ -207,7 +205,7 @@ kali_rootfs_debootstrap() {
     fi
 
     echo "[DBG] debootstrap state 2"
-    if [[ -f "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE2" ]]; then
+    if [ -f "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE2" ]; then
         echo "[DBG] SKIP debootstrap state 2"
 
     else
@@ -313,7 +311,7 @@ EOF
     touch "${DN_ROOTFS_DEBIAN}/tmp/.tmpfs"
 
     echo "[DBG] debootstrap state 3"
-    if [[ -f "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE3" ]]; then
+    if [ -f "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE3" ]; then
         echo "[DBG] SKIP debootstrap state 3"
 
     else
@@ -464,7 +462,7 @@ EOF
         fi
         sudo umount "${DN_ROOTFS_DEBIAN}/sys/"
 
-        sudo chown -R root:root "${DN_ROOTFS_DEBIAN}"
+        #sudo chown -R root:root "${DN_ROOTFS_DEBIAN}"
         touch "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE3"
     fi
 
@@ -479,7 +477,7 @@ EOF
 kali_rootfs_linuxkernel() {
     # compile and install linux kernel for Raspberry Pi 2, install rpi2 specified tools
 
-    if [[ -f "${PREFIX_TMP}-FLG_KERNEL_COMPILE_CORE" ]]; then
+    if [ -f "${PREFIX_TMP}-FLG_KERNEL_COMPILE_CORE" ]; then
         echo "[DBG] SKIP compile kernel core"
 
     else
@@ -512,11 +510,10 @@ kali_rootfs_linuxkernel() {
 
     my0_check_valid_path "${DN_ROOTFS_KERNEL}"
     sudo mkdir -p "${DN_ROOTFS_KERNEL}/lib/"
-    sudo chown -R ${USER} "${DN_ROOTFS_KERNEL}/lib/"
     sudo rm -rf ${DN_ROOTFS_KERNEL}/lib/firmware
     #git clone --depth 1 https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git ${DN_ROOTFS_KERNEL}/lib/firmware
-    cp -r ${srcdir}/firmware-linux-git ${DN_ROOTFS_KERNEL}/lib/firmware
-    rm -rf ${DN_ROOTFS_KERNEL}/lib/firmware/.git
+    sudo cp -r ${srcdir}/firmware-linux-git ${DN_ROOTFS_KERNEL}/lib/firmware
+    sudo rm -rf ${DN_ROOTFS_KERNEL}/lib/firmware/.git
 
 if [ 1 = 0 ]; then
     make uImage
@@ -529,21 +526,27 @@ else
     my0_check_valid_path "${DN_ROOTFS_KERNEL}"
     sudo mkdir -p "${DN_BOOT_4KERNEL}"
     sudo chown -R ${USER} "${DN_BOOT_4KERNEL}"
-    cp -rf ${srcdir}/firmware-raspberrypi-git/boot/* ${DN_BOOT_4KERNEL}
+    sudo cp -rf ${srcdir}/firmware-raspberrypi-git/boot/* ${DN_BOOT_4KERNEL}
 
-    cp arch/arm/boot/zImage ${DN_BOOT_4KERNEL}/${FN_RPI_KERNEL}
+    sudo cp arch/arm/boot/zImage ${DN_BOOT_4KERNEL}/${FN_RPI_KERNEL}
 
-    cat << EOF > ${DN_BOOT_4KERNEL}/cmdline.txt
+    T="${PREFIX_TMP}-cmdline.txt"
+    cat << EOF > "${T}"
 dwc_otg.lpm_enable=0 console=ttyAMA0,115200 kgdboc=ttyAMA0,115200 console=tty1 elevator=deadline root=/dev/mmcblk0p2 rootfstype=ext4 rootwait
 EOF
+    sudo mv "${T}" "${DN_BOOT_4KERNEL}/cmdline.txt"
+    if [ ! "$?" = "0" ]; then
+        echo "Error in move file $T"
+        exit 1
+    fi
+
     # rpi-wiggle
-    mkdir -p ${DN_ROOTFS_KERNEL}/scripts
-    #wget https://raw.github.com/dweeber/rpiwiggle/master/rpi-wiggle -O ${DN_ROOTFS_KERNEL}/scripts/rpi-wiggle.sh
-    cp ${srcdir}/rpiwiggle-git/rpi-wiggle ${DN_ROOTFS_KERNEL}/scripts/rpi-wiggle.sh
-    chmod 755 ${DN_ROOTFS_KERNEL}/scripts/rpi-wiggle.sh
+    sudo mkdir -p ${DN_ROOTFS_KERNEL}/scripts
+    #sudo wget https://raw.github.com/dweeber/rpiwiggle/master/rpi-wiggle -O ${DN_ROOTFS_KERNEL}/scripts/rpi-wiggle.sh
+    sudo cp ${srcdir}/rpiwiggle-git/rpi-wiggle ${DN_ROOTFS_KERNEL}/scripts/rpi-wiggle.sh
+    sudo chmod 755 ${DN_ROOTFS_KERNEL}/scripts/rpi-wiggle.sh
 fi
 
-    sudo chown -R root:root "${DN_ROOTFS_KERNEL}"
 }
 
 rsync_and_verify() {
@@ -583,6 +586,7 @@ kali_create_image() {
     # Create the disk and partition it
     if [[ ! -f "${FN_IMAGE}" || ! -f "${PREFIX_TMP}-FLG_KALI_CREATE_IMAGE" ]]; then
         echo "Creating image file for ${pkgdesc}: ${FN_IMAGE}"
+        sudo rm -f "${FN_IMAGE}"
         dd if=/dev/zero of=${FN_IMAGE} bs=1M count=${IMGCONTAINER_SIZE}
         if [ ! "$?" = "0" ]; then
             echo "error in dd"
@@ -605,7 +609,7 @@ kali_create_image() {
         echo "[DBG] SKIP creating image file ${FN_IMAGE}"
     fi
 
-if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROOTFS" || ! -f "${PREFIX_TMP}-FLG_RSYNC_KERNEL" ]]; then
+if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROOTFS" || ! -f "${PREFIX_TMP}-FLG_RSYNC_KERNEL" || ! -f "${PREFIX_TMP}-FLG_BSDTAR_ROOTFS" ]]; then
     # Set the partition variables
     DEV_LOOP=$(sudo losetup -f --show ${FN_IMAGE})
     if [ "${DEV_LOOP}" = "" ]; then
@@ -621,7 +625,7 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
     bootp="/dev/mapper/${LOOPNAME}p1"
     rootp="/dev/mapper/${LOOPNAME}p2"
 
-    if [[ -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" ]]; then
+    if [ -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" ]; then
         echo "[DBG] SKIP rsync rootfs"
 
     else
@@ -660,7 +664,7 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
         exit 1
     fi
 
-    if [[ -f "${PREFIX_TMP}-FLG_RSYNC_ROOTFS" ]]; then
+    if [ -f "${PREFIX_TMP}-FLG_RSYNC_ROOTFS" ]; then
         echo "[DBG] SKIP rsync rootfs"
 
     else
@@ -669,7 +673,7 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
         touch "${PREFIX_TMP}-FLG_RSYNC_ROOTFS"
     fi
 
-    if [[ -f "${PREFIX_TMP}-FLG_RSYNC_KERNEL" ]]; then
+    if [ -f "${PREFIX_TMP}-FLG_RSYNC_KERNEL" ]; then
         echo "[DBG] SKIP rsync rootfs"
 
     else
@@ -678,50 +682,60 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
         touch "${PREFIX_TMP}-FLG_RSYNC_KERNEL"
     fi
 
-    # Enable login over serial
-if [ 1 = 1 ]; then
-    echo "echo 'T0:23:respawn:/sbin/agetty -L ttyAMA0 115200 vt100' >> ${DN_ROOT}/etc/inittab" | sudo sh
-else
-    echo "echo 'T0:123:respawn:/sbin/getty -L ttyS0 115200 vt100' >> ${DN_ROOT}/etc/inittab" | sudo sh
-fi
+    if [ -f "${PREFIX_TMP}-FLG_BSDTAR_ROOTFS" ]; then
+        echo "[DBG] SKIP bsdtar rootfs"
 
-    # if use hdr, uncomment following
-    #ROOT_UUID=$(blkid $rootp | sed -n 's/.*UUID=\"\([^\"]*\)\".*/\1/p')
-    #sed -i -e "s/root=[^\w ]*/root=${ROOT_UUID}/" "${DN_BOOT_4IMAGE}/boot.int"
+    else
+        echo "tar rootfs from into image file"
+        if which bsdtar; then
+            # create a tar package for whole system, include /boot and /
+            sudo bsdtar -C "${DN_ROOT}" -cf "${FN_IMAGE_BASE}.tar.gz" .
+            touch "${PREFIX_TMP}-FLG_BSDTAR_ROOTFS"
+        fi
+    fi
 
     # Unmount partitions
     sudo umount ${DN_BOOT_4IMAGE}
     sudo umount ${DN_ROOT}
+    sleep 5  # wait umount
     sudo kpartx -dv ${DEV_LOOP}
     sudo losetup -d ${DEV_LOOP}
     if [ ! "$?" = "0" ]; then
         echo "error in losetup"
         exit 1
     fi
+fi
+
+    check_kali_image "${FN_IMAGE}"
 
     # If you're building an image for yourself, comment all of this out, as you
     # don't need the sha1sum or to compress the image, since you will be testing it
     # soon.
     echo "Generating sha1sum for ${FN_IMAGE}"
-    (cd $(dirname ${FN_IMAGE}) && sha1sum $(basename ${FN_IMAGE}) > ${FN_IMAGE}.sha1sum)
-    if which bmaptool; then
-        bmaptool create -o ${FN_IMAGE}.bmap ${FN_IMAGE}
+    if [ ! -f "${FN_IMAGE}.sha1sum" ]; then
+        (cd $(dirname ${FN_IMAGE}) && sha1sum $(basename ${FN_IMAGE}) > ${FN_IMAGE}.sha1sum)
     fi
-    if which pixz; then
-        # Don't pixz on 32bit, there isn't enough memory to compress the images.
-        HW=$(uname -m)
-        if [ ${HW} == 'x86_64' ]; then
-            echo "Compressing ${FN_IMAGE}"
-            pixz ${FN_IMAGE} ${FN_IMAGE}.xz
-            if [ "$?" = "0" ]; then
-                rm -f ${FN_IMAGE}
-                echo "Generating sha1sum for ${FN_IMAGE}.xz"
-                (cd $(dirname ${FN_IMAGE}.xz) && sha1sum $(basename ${FN_IMAGE}.xz) > ${FN_IMAGE}.xz.sha1sum)
+    if [ ! -f "${FN_IMAGE}.bmap" ]; then
+        if which bmaptool; then
+            bmaptool create -o ${FN_IMAGE}.bmap ${FN_IMAGE}
+        fi
+    fi
+    if [ ! -f "${FN_IMAGE}.xz" ]; then
+        if which pixz; then
+            # Don't pixz on 32bit, there isn't enough memory to compress the images.
+            HW=$(uname -m)
+            if [ ${HW} == 'x86_64' ]; then
+                echo "Compressing ${FN_IMAGE}"
+                pixz ${FN_IMAGE} ${FN_IMAGE}.xz
+                if [ "$?" = "0" ]; then
+                    rm -f ${FN_IMAGE}
+                    echo "Generating sha1sum for ${FN_IMAGE}.xz"
+                    (cd $(dirname ${FN_IMAGE}.xz) && sha1sum $(basename ${FN_IMAGE}.xz) > ${FN_IMAGE}.xz.sha1sum)
+                fi
             fi
         fi
     fi
 
-fi
 }
 
 my0_getpath () {
@@ -774,7 +788,8 @@ my_setevn() {
         MACHINECORES=2
     fi
 
-    export FN_IMAGE="${srcdir}/${pkgname}-${pkgver}-${MACHINEARCH}.img"
+    export FN_IMAGE_BASE="${srcdir}/${pkgname}-${pkgver}-${MACHINEARCH}"
+    export FN_IMAGE="${FN_IMAGE_BASE}.img"
 
     #export DN_TOOLCHAIN_UBOOT="${srcdir}/toolchains-uboot-${MACHINEARCH}"
     #export DN_TOOLCHAIN_KERNEL="${srcdir}/toolchains-kernel-${MACHINEARCH}"
@@ -840,8 +855,16 @@ prepare_rpi2_kernel () {
 
 prepare_rpi2_rootfs () {
 
+    # Enable login over serial
+    echo "echo 'T0:23:respawn:/sbin/agetty -L ttyAMA0 115200 vt100' >> ${DN_ROOTFS_DEBIAN}/etc/inittab" | sudo sh
+
+    # if use hdr, uncomment following
+    #ROOT_UUID=$(blkid $rootp | sed -n 's/.*UUID=\"\([^\"]*\)\".*/\1/p')
+    #sudo sed -i -e "s/root=[^\w ]*/root=${ROOT_UUID}/" "${DN_BOOT_4KERNEL}/boot.int"
+
     # Set up firmware config
-    cat << EOF > ${DN_BOOT_4KERNEL}/config.txt
+    T="${PREFIX_TMP}-config.txt"
+    cat << EOF > "${T}"
 # For more options and information see 
 # http://www.raspberrypi.org/documentation/configuration/config-txt.md
 # Some settings may impact device functionality. See link above for details
@@ -886,25 +909,43 @@ prepare_rpi2_rootfs () {
 #uncomment to overclock the arm. 700 MHz is the default.
 #arm_freq=800
 EOF
-    ln -sf firmware/config.txt "${DN_ROOTFS_KERNEL}/boot/config.txt"
-    echo 'dwc_otg.lpm_enable=0 console=tty1 root=/dev/mmcblk0p2 rootwait' > ${DN_BOOT_4KERNEL}/cmdline.txt
-    ln -sf firmware/cmdline.txt "${DN_ROOTFS_KERNEL}/boot/cmdline.txt"
+    sudo mv "${T}" "${DN_BOOT_4KERNEL}/config.txt"
+    if [ ! "$?" = "0" ]; then
+        echo "Error in move file $T"
+        exit 1
+    fi
+    sudo ln -sf firmware/config.txt "${DN_ROOTFS_KERNEL}/boot/config.txt"
+    echo "echo 'dwc_otg.lpm_enable=0 console=tty1 root=/dev/mmcblk0p2 rootwait' > ${DN_BOOT_4KERNEL}/cmdline.txt" | sudo sh
+    sudo ln -sf firmware/cmdline.txt "${DN_ROOTFS_KERNEL}/boot/cmdline.txt"
 
     # Load sound module on boot
-    cat << EOF > "${DN_ROOTFS_DEBIAN}/lib/modules-load.d/rpi2.conf"
+    T="${PREFIX_TMP}-rpi2.conf"
+    cat << EOF > "${T}"
 snd_bcm2835
 bcm2708_rng
 EOF
+    sudo mv "${T}" "${DN_ROOTFS_DEBIAN}/lib/modules-load.d/rpi2.conf"
+    if [ ! "$?" = "0" ]; then
+        echo "Error in move file $T"
+        exit 1
+    fi
 
     # Blacklist platform modules not applicable to the RPi2
-    cat << EOF > "${DN_ROOTFS_KERNEL}/etc/modprobe.d/rpi2.conf"
+    T="${PREFIX_TMP}-rpi2.conf"
+    cat << EOF > "${T}"
 blacklist snd_soc_pcm512x_i2c
 blacklist snd_soc_pcm512x
 blacklist snd_soc_tas5713
 blacklist snd_soc_wm8804
 EOF
+    sudo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/modprobe.d/rpi2.conf"
+    if [ ! "$?" = "0" ]; then
+        echo "Error in move file $T"
+        exit 1
+    fi
 
-    cat << EOF > "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf"
+    T="${PREFIX_TMP}-xorg.conf"
+    cat << EOF > "${T}"
 # X.Org X server configuration file for xfree86-video-mali
 
 Section "Device"
@@ -933,8 +974,14 @@ Section "DRI"
         Mode            0666
 EndSection
 EOF
+    sudo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf"
+    if [ ! "$?" = "0" ]; then
+        echo "Error in move file $T"
+        exit 1
+    fi
 
-    cat << EOF > "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf.failsafe"
+    T="${PREFIX_TMP}-xorg.conf.failsafe"
+    cat << EOF > "${T}"
 Section "Device"
 	Identifier	"Configured Video Device"
 	Driver		"vesa"
@@ -950,7 +997,102 @@ Section "Screen"
 	Device		"Configured Video Device"
 EndSection
 EOF
+    sudo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf.failsafe"
+    if [ ! "$?" = "0" ]; then
+        echo "Error in move file $T"
+        exit 1
+    fi
 
+}
+
+# check if the file exist in the created image file
+# pass in the mounted root path of the image file
+check_rpi2_rootfs() {
+    PARAM_ROOT=$1
+    shift
+
+    chkfile_rpi2=(
+        "${MNTPOINT_BOOT_FIRMWARE}/config.txt"
+        "${MNTPOINT_BOOT_FIRMWARE}/cmdline.txt"
+        "${MNTPOINT_BOOT_FIRMWARE}/${FN_RPI_KERNEL}"
+
+        /etc/X11/xorg.conf
+        /etc/X11/xorg.conf.failsafe
+        /lib/modules-load.d/rpi2.conf
+        /scripts/rpi-wiggle.sh
+    )
+    FLG_ERROR=0
+    for i in ${chkfile_rpi2[*]} ; do
+        if [ ! -f "${PARAM_ROOT}/${i}" ]; then
+            FLG_ERROR=1
+            echo "Error: not found required file at ${PARAM_ROOT}/${i}"
+        fi
+    done
+    if [ "${FLG_ERROR}" = "1" ]; then
+        echo "[DBG] check file error!"
+        exit 1
+    fi
+}
+
+# create a image file with two partitions: /boot/ and /
+check_kali_image() {
+    PARAM_FN_IMAGE="$1"
+    shift
+
+    echo "[DBG] check_kali_image() ..."
+    # Create the disk and partition it
+    if [[ ! -f "${PARAM_FN_IMAGE}" ]]; then
+        echo "Error: Not found image file ${PARAM_FN_IMAGE}"
+        exit 1
+    fi
+
+    # Set the partition variables
+    DEV_LOOP=$(sudo losetup -f --show ${PARAM_FN_IMAGE})
+    if [ "${DEV_LOOP}" = "" ]; then
+        echo "error in losetup"
+        exit 1
+    fi
+    LOOPNAME=$(sudo kpartx -va ${DEV_LOOP} | sed -E 's/.*(loop[0-9])p.*/\1/g' | head -1)
+    if [ "${LOOPNAME}" = "" ]; then
+        echo "Error in loop device 2: ${DEV_LOOP}"
+        exit 1
+    fi
+    #partprobe "${DEV_LOOP}" # to get /dev/loop0p1 ...
+    bootp="/dev/mapper/${LOOPNAME}p1"
+    rootp="/dev/mapper/${LOOPNAME}p2"
+
+    # Create the dirs for the partitions and mount them
+    DN_ROOT="${srcdir}/mntrootfs-${MACHINEARCH}-${pkgname}-checker"
+    mkdir -p ${DN_ROOT}
+    sudo mount $rootp ${DN_ROOT}
+    if [ ! "$?" = "0" ]; then
+        echo "error in mount root "
+        exit 1
+    fi
+
+    DN_BOOT_4IMAGE="${DN_ROOT}${MNTPOINT_BOOT_FIRMWARE}"
+    sudo mkdir -p ${DN_BOOT_4IMAGE}
+    if [ ! "$?" = "0" ]; then
+        echo "error in mkdir ${DN_BOOT_4IMAGE}"
+        exit 1
+    fi
+    sudo mount $bootp ${DN_BOOT_4IMAGE}
+    if [ ! "$?" = "0" ]; then
+        echo "error in mount boot"
+        exit 1
+    fi
+
+    check_rpi2_rootfs "${DN_ROOT}"
+
+    # Unmount partitions
+    sudo umount ${DN_BOOT_4IMAGE}
+    sudo umount ${DN_ROOT}
+    sudo kpartx -dv ${DEV_LOOP}
+    sudo losetup -d ${DEV_LOOP}
+    if [ ! "$?" = "0" ]; then
+        echo "error in losetup"
+        exit 1
+    fi
 }
 
 prepare() {
