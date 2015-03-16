@@ -90,7 +90,7 @@ USE_GIT_REPO=0
 #DNSRC_LINUX=linux-raspberrypi-git
 
 source=(
-        "kali-arm-build-scripts-git::git+https://github.com/yhfudev/kali-arm-build-scripts.git"
+        "kali-arm-build-scripts-git::git+https://github.com/offensive-security/kali-arm-build-scripts.git"
         "https://github.com/raspberrypi/linux/archive/${GITCOMMIT_LINUX}.tar.gz" # "${DNSRC_LINUX}::git+https://github.com/raspberrypi/linux.git"
         "tools-raspberrypi-git::git+https://github.com/raspberrypi/tools.git"
         "firmware-raspberrypi-git::git+https://github.com/raspberrypi/firmware.git"
