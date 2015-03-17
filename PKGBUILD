@@ -98,6 +98,8 @@ source=(
         "rpiwiggle-git::git+https://github.com/dweeber/rpiwiggle/"
         "rpi2-3.19.config"
         "rpi-kernel-config-3.19.patch"
+        "debian-systemstart.sh"
+        "debian-zram.sh"
         )
 
 md5sums=(
@@ -110,6 +112,7 @@ md5sums=(
          '95560f6b44bf10f75a7515dae9c79dd5' # rpi2-3.19.config
          '285be432ee3a5a66086ba56bb18d7266' # rpi-kernel-config-3.19.patch
          '664c0e6d1c31555cb16440cc5d0ed8c1' # debian-systemstart.sh
+         '3793439a6f13115f2251e782646ee8e6' # debian-zram.sh
          )
 sha1sums=(
          'SKIP'
@@ -121,6 +124,7 @@ sha1sums=(
          'c0c30c8d9c53cb6694d22c0aa92d7c28f1987463' # rpi2-3.19.config
          'eb2ebe665a77a483acc379da165bb9fb6437e078' # rpi-kernel-config-3.19.patch
          '7329163a03497e25fc63556ecdbd3d28cbd28371' # debian-systemstart.sh
+         'ab5a6304d3e3ca5b315cff0bfa25558e38520100' # debian-zram.sh
          )
 
 pkgver() {
