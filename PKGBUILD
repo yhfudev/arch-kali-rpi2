@@ -1009,7 +1009,7 @@ EOF
     fi
 
     # Blacklist platform modules not applicable to the RPi2
-    sudo mkdir -p "${DN_ROOTFS_KERNEL}/etc/modprobe.d/"
+    sudo mkdir -p "${DN_ROOTFS_DEBIAN}/etc/modprobe.d/"
     T="${PREFIX_TMP}-etcrpi2.conf"
     cat << EOF > "${T}"
 blacklist snd_soc_pcm512x_i2c
@@ -1017,14 +1017,14 @@ blacklist snd_soc_pcm512x
 blacklist snd_soc_tas5713
 blacklist snd_soc_wm8804
 EOF
-    echo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/modprobe.d/rpi2.conf"
-    sudo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/modprobe.d/rpi2.conf"
+    echo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/modprobe.d/rpi2.conf"
+    sudo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/modprobe.d/rpi2.conf"
     if [ ! "$?" = "0" ]; then
         echo "Error in move file $T"
         exit 1
     fi
 
-    sudo mkdir -p "${DN_ROOTFS_KERNEL}/etc/X11/"
+    sudo mkdir -p "${DN_ROOTFS_DEBIAN}/etc/X11/"
     T="${PREFIX_TMP}-xorg.conf"
     cat << EOF > "${T}"
 # X.Org X server configuration file for xfree86-video-mali
@@ -1055,8 +1055,8 @@ Section "DRI"
         Mode            0666
 EndSection
 EOF
-    echo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf"
-    sudo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf"
+    echo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/X11/xorg.conf"
+    sudo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/X11/xorg.conf"
     if [ ! "$?" = "0" ]; then
         echo "Error in move file $T"
         exit 1
@@ -1079,8 +1079,8 @@ Section "Screen"
 	Device		"Configured Video Device"
 EndSection
 EOF
-    echo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf.failsafe"
-    sudo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf.failsafe"
+    echo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/X11/xorg.conf.failsafe"
+    sudo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/X11/xorg.conf.failsafe"
     if [ ! "$?" = "0" ]; then
         echo "Error in move file $T"
         exit 1
