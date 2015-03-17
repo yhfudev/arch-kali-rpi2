@@ -450,6 +450,7 @@ EOF
         aptcache_backup2srcdst "../archives-real/" "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
         sudo umount "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives-real"
         sudo rmdir "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives-real"
+        find "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives/" | while read i ; do sudo rm -rf $i; done
 
         cat << EOF > "${PREFIX_TMP}-aptlst"
 deb http://http.kali.org/kali kali main non-free contrib
@@ -526,6 +527,7 @@ EOF
     aptcache_backup2srcdst "../archives-real/" "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
     sudo umount "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives-real"
     sudo rmdir "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives-real"
+    find "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives/" | while read i ; do sudo rm -rf $i; done
 
     if [ "${ISCROSS}" = "1" ]; then
         unregister_qemuarm
@@ -926,8 +928,8 @@ stop on runlevel [!12345]
 respawn
 exec /sbin/getty -L 115200 ttyAMA0 vt102
 EOF
-    echo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/init/ttyS0.conf"
-    sudo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/init/ttyS0.conf"
+    echo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/init/ttyAMA0.conf"
+    sudo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/init/ttyAMA0.conf"
     if [ ! "$?" = "0" ]; then
         echo "Error in move file $T"
         exit 1
