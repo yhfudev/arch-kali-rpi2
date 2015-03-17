@@ -58,7 +58,7 @@ fi
 # script will throw an error, but will still continue on, and create an unusable
 # image, keep that in mind.
 PACKAGES_ARM="abootimg cgpt fake-hwclock ntpdate vboot-utils vboot-kernel-utils uboot-mkimage"
-PACKAGES_BASE="kali-menu kali-defaults initramfs-tools sudo parted e2fsprogs usbutils nfs-common lsb-release"
+PACKAGES_BASE="kali-menu kali-defaults initramfs-tools sudo parted e2fsprogs usbutils nfs-common lsb-release ntfs-3g usbmount hdparm"
 PACKAGES_DESKTOP="xfce4 network-manager network-manager-gnome xserver-xorg-video-fbdev"
 PACKAGES_TOOLS="passing-the-hash winexe aircrack-ng hydra john sqlmap wireshark libnfc-bin mfoc nmap ethtool"
 PACKAGES_SERVICES="openssh-server apache2"
@@ -109,6 +109,7 @@ md5sums=(
          'SKIP'
          '95560f6b44bf10f75a7515dae9c79dd5' # rpi2-3.19.config
          '285be432ee3a5a66086ba56bb18d7266' # rpi-kernel-config-3.19.patch
+         '1cdcd53f32f429a7d2bc8b5a76d843de' # debian-systemstart.sh
          )
 sha1sums=(
          'SKIP'
@@ -119,6 +120,7 @@ sha1sums=(
          'SKIP'
          'c0c30c8d9c53cb6694d22c0aa92d7c28f1987463' # rpi2-3.19.config
          'eb2ebe665a77a483acc379da165bb9fb6437e078' # rpi-kernel-config-3.19.patch
+         '050d28df32f340fe362c2427e37cfc4a21569b5b' # debian-systemstart.sh
          )
 
 pkgver() {
@@ -236,7 +238,7 @@ kali_rootfs_debootstrap() {
     else
         # create the rootfs - not much to modify here, except maybe the hostname.
         echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
-        sudo debootstrap --foreign --no-check-gpg --include=ca-certificates,ssh,vim,locales,ntpdate,usbmount,initramfs-tools --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
+        sudo debootstrap --foreign --no-check-gpg --include=ca-certificates,ssh,vim,locales,ntpdate,initramfs-tools --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
         if [ "$?" = "0" ]; then
             touch "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE1"
         else
@@ -389,6 +391,13 @@ EOF
             exit 1
         fi
 
+        # systemstart
+        sudo mv "${srcdir}/debian-systemstart.sh" "${DN_ROOTFS_DEBIAN}/etc/init.d/"
+        if [ ! "$?" = "0" ]; then
+            echo "Error in move script systemstart"
+            exit 1
+        fi
+
         cat << EOF > "${PREFIX_TMP}-ths"
 #!/bin/bash
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin:$PATH
@@ -430,6 +439,15 @@ dpkg-divert --remove --rename /usr/sbin/invoke-rc.d
 
 sed -i -e 's|^[# ]*NEED_STATD[ ]*=.*$|NEED_STATD=yes|' /etc/default/nfs-common
 update-rc.d rpcbind enable
+
+# update usbmount
+# MOUNTOPTIONS="sync,noexec,nodev,noatime,nodiratime"
+sed -i -e 's|MOUNTOPTIONS="|MOUNTOPTIONS="utf8=1,|' /etc/usbmount/usbmount.conf
+
+# tmpfs
+sed -i -e 's|^[# ]*RAMTMP[ ]*=.*$|RAMTMP=yes|' /etc/default/tmpfs
+
+insserv systemstart
 
 rm -f /third-stage
 EOF
