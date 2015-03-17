@@ -925,6 +925,7 @@ stop on runlevel [!12345]
 respawn
 exec /sbin/getty -L 115200 ttyAMA0 vt102
 EOF
+    echo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/init/ttyS0.conf"
     sudo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/init/ttyS0.conf"
     if [ ! "$?" = "0" ]; then
         echo "Error in move file $T"
@@ -983,6 +984,7 @@ fi
 #uncomment to overclock the arm. 700 MHz is the default.
 #arm_freq=800
 EOF
+    echo mv "${T}" "${DN_BOOT_4KERNEL}/config.txt"
     sudo mv "${T}" "${DN_BOOT_4KERNEL}/config.txt"
     if [ ! "$?" = "0" ]; then
         echo "Error in move file $T"
@@ -994,11 +996,12 @@ EOF
 
     # Load sound module on boot
     sudo mkdir -p "${DN_ROOTFS_DEBIAN}/lib/modules-load.d/"
-    T="${PREFIX_TMP}-rpi2.conf"
+    T="${PREFIX_TMP}-librpi2.conf"
     cat << EOF > "${T}"
 snd_bcm2835
 bcm2708_rng
 EOF
+    echo mv "${T}" "${DN_ROOTFS_DEBIAN}/lib/modules-load.d/rpi2.conf"
     sudo mv "${T}" "${DN_ROOTFS_DEBIAN}/lib/modules-load.d/rpi2.conf"
     if [ ! "$?" = "0" ]; then
         echo "Error in move file $T"
@@ -1007,13 +1010,14 @@ EOF
 
     # Blacklist platform modules not applicable to the RPi2
     sudo mkdir -p "${DN_ROOTFS_KERNEL}/etc/modprobe.d/"
-    T="${PREFIX_TMP}-rpi2.conf"
+    T="${PREFIX_TMP}-etcrpi2.conf"
     cat << EOF > "${T}"
 blacklist snd_soc_pcm512x_i2c
 blacklist snd_soc_pcm512x
 blacklist snd_soc_tas5713
 blacklist snd_soc_wm8804
 EOF
+    echo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/modprobe.d/rpi2.conf"
     sudo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/modprobe.d/rpi2.conf"
     if [ ! "$?" = "0" ]; then
         echo "Error in move file $T"
@@ -1051,6 +1055,7 @@ Section "DRI"
         Mode            0666
 EndSection
 EOF
+    echo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf"
     sudo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf"
     if [ ! "$?" = "0" ]; then
         echo "Error in move file $T"
@@ -1074,6 +1079,7 @@ Section "Screen"
 	Device		"Configured Video Device"
 EndSection
 EOF
+    echo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf.failsafe"
     sudo mv "${T}" "${DN_ROOTFS_KERNEL}/etc/X11/xorg.conf.failsafe"
     if [ ! "$?" = "0" ]; then
         echo "Error in move file $T"
