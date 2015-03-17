@@ -109,7 +109,7 @@ md5sums=(
          'SKIP'
          '95560f6b44bf10f75a7515dae9c79dd5' # rpi2-3.19.config
          '285be432ee3a5a66086ba56bb18d7266' # rpi-kernel-config-3.19.patch
-         '1cdcd53f32f429a7d2bc8b5a76d843de' # debian-systemstart.sh
+         '664c0e6d1c31555cb16440cc5d0ed8c1' # debian-systemstart.sh
          )
 sha1sums=(
          'SKIP'
@@ -120,7 +120,7 @@ sha1sums=(
          'SKIP'
          'c0c30c8d9c53cb6694d22c0aa92d7c28f1987463' # rpi2-3.19.config
          'eb2ebe665a77a483acc379da165bb9fb6437e078' # rpi-kernel-config-3.19.patch
-         '050d28df32f340fe362c2427e37cfc4a21569b5b' # debian-systemstart.sh
+         '7329163a03497e25fc63556ecdbd3d28cbd28371' # debian-systemstart.sh
          )
 
 pkgver() {
