@@ -993,6 +993,7 @@ EOF
     sudo ln -sf firmware/cmdline.txt "${DN_ROOTFS_KERNEL}/boot/cmdline.txt"
 
     # Load sound module on boot
+    sudo mkdir -p "${DN_ROOTFS_DEBIAN}/lib/modules-load.d/"
     T="${PREFIX_TMP}-rpi2.conf"
     cat << EOF > "${T}"
 snd_bcm2835
@@ -1005,6 +1006,7 @@ EOF
     fi
 
     # Blacklist platform modules not applicable to the RPi2
+    sudo mkdir -p "${DN_ROOTFS_KERNEL}/etc/modprobe.d/"
     T="${PREFIX_TMP}-rpi2.conf"
     cat << EOF > "${T}"
 blacklist snd_soc_pcm512x_i2c
@@ -1018,6 +1020,7 @@ EOF
         exit 1
     fi
 
+    sudo mkdir -p "${DN_ROOTFS_KERNEL}/etc/X11/"
     T="${PREFIX_TMP}-xorg.conf"
     cat << EOF > "${T}"
 # X.Org X server configuration file for xfree86-video-mali
