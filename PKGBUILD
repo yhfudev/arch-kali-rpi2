@@ -341,8 +341,8 @@ cat << EOF > "${PREFIX_TMP}-fstab"
 LABEL=${DISKLABEL_ROOTFS}   /           auto    defaults,noatime,nodiratime,errors=remount-ro  0       1
 LABEL=${DISKLABEL_BOOTFS}   ${MNTPOINT_BOOT_FIRMWARE}  auto    defaults,ro,owner,flush,umask=000        0       2
 
-#tmpfs       /tmp        tmpfs   nodev,nosuid,mode=1777,size=10%         0   0
-tmpfs       /tmp        tmpfs   nodev,nosuid,mode=1777,size=100,noatime 0   0
+tmpfs       /tmp        tmpfs   nodev,nosuid,mode=1777,size=10%         0   0
+#tmpfs       /tmp        tmpfs   nodev,nosuid,mode=1777,size=100m,noatime 0   0
 tmpfs       /var/tmp    tmpfs   defaults,noatime,nosuid,size=30m        0   0
 
 #tmpfs       /var/log    tmpfs   nodev,nosuid,size=20%,mode=1755     0       0
@@ -1027,6 +1027,7 @@ EOF
         exit 1
     fi
 
+if [ 1 = 0 ]; then
     sudo mkdir -p "${DN_ROOTFS_DEBIAN}/etc/X11/"
     T="${PREFIX_TMP}-xorg.conf"
     cat << EOF > "${T}"
@@ -1088,6 +1089,7 @@ EOF
         echo "Error in move file $T"
         exit 1
     fi
+fi # disable this X11 config
 
 }
 
