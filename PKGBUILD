@@ -102,7 +102,7 @@ source=(
 
 md5sums=(
          'SKIP'
-         'SKIP'
+         '88a3ab7a0bfec9f470f029468fe3a2d6' # linux-5e3fb8358a4918c1c6c3ad0706da28c90ef7f737
          'SKIP'
          'SKIP'
          'SKIP'
@@ -112,7 +112,7 @@ md5sums=(
          )
 sha1sums=(
          'SKIP'
-         'SKIP'
+         'fd7b0ed1b1cdf1d723972e620d14ce58c05500d1' # linux-5e3fb8358a4918c1c6c3ad0706da28c90ef7f737
          'SKIP'
          'SKIP'
          'SKIP'
@@ -206,7 +206,7 @@ kali_rootfs_debootstrap() {
     shift
 
     # the apt cache folder
-    DN_APT_CACHE="${srcdir}/apt-cache-kali-${MACHINEARCH}"
+    DN_APT_CACHE="${SRCDEST}/apt-cache-kali-${MACHINEARCH}"
     mkdir -p "${DN_APT_CACHE}"
 
     # build kali rootfs
