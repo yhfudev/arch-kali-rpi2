@@ -494,6 +494,7 @@ EOF
             exit 1
         fi
         sudo rm -f "${DN_ROOTFS_DEBIAN}/usr/bin/qemu*"
+        sudo rm -f "${DN_ROOTFS_DEBIAN}/debconf.set"
 
         sudo umount "${DN_ROOTFS_DEBIAN}/proc/sys/fs/binfmt_misc"
         #if [ ! "$?" = "0" ]; then
