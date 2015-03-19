@@ -114,7 +114,7 @@ md5sums=(
          '285be432ee3a5a66086ba56bb18d7266' # rpi-kernel-config-3.19.patch
          '606f94b9899f58ba579abdab866d5d8d' # debian-systemstart.sh
          '3793439a6f13115f2251e782646ee8e6' # debian-zram.sh
-         'fd399cf39e895c78a934e49bd2005b9e' # bash.bashrc.template
+         '5d45a3ee5562bec9dd4eebdde9834964' # bash.bashrc.template
          )
 sha1sums=(
          'SKIP'
@@ -127,7 +127,7 @@ sha1sums=(
          'eb2ebe665a77a483acc379da165bb9fb6437e078' # rpi-kernel-config-3.19.patch
          'fbc1261db869be59734ae59457fcf126fb4a3ea7' # debian-systemstart.sh
          'ab5a6304d3e3ca5b315cff0bfa25558e38520100' # debian-zram.sh
-         'f34682a64ca0b720a89d9e7e919e9a9f63f5bf1c' # bash.bashrc.template
+         'cb7f7b0b0a5feb0c059010eb9f6ecfab8580035a' # bash.bashrc.template
          )
 
 pkgver() {
@@ -1170,8 +1170,8 @@ check_rpi2_rootfs() {
         "${MNTPOINT_BOOT_FIRMWARE}/cmdline.txt"
         "${MNTPOINT_BOOT_FIRMWARE}/${FN_RPI_KERNEL}"
 
-        /etc/X11/xorg.conf
-        /etc/X11/xorg.conf.failsafe
+        #/etc/X11/xorg.conf
+        #/etc/X11/xorg.conf.failsafe
         /lib/modules-load.d/rpi2.conf
         /scripts/rpi-wiggle.sh
     )
