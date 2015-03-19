@@ -58,7 +58,7 @@ fi
 # script will throw an error, but will still continue on, and create an unusable
 # image, keep that in mind.
 PACKAGES_ARM="abootimg cgpt fake-hwclock ntpdate vboot-utils vboot-kernel-utils uboot-mkimage"
-PACKAGES_BASE="kali-menu kali-defaults initramfs-tools sudo parted e2fsprogs usbutils nfs-common lsb-release ntfs-3g usbmount hdparm"
+PACKAGES_BASE="kali-menu kali-defaults initramfs-tools sudo parted e2fsprogs usbutils nfs-common lsb-release ntfs-3g usbmount hdparm tmux"
 PACKAGES_DESKTOP="xfce4 network-manager network-manager-gnome xserver-xorg-video-fbdev"
 PACKAGES_TOOLS="passing-the-hash winexe aircrack-ng hydra john sqlmap wireshark libnfc-bin mfoc nmap ethtool"
 PACKAGES_SERVICES="openssh-server apache2"
@@ -100,6 +100,7 @@ source=(
         "rpi-kernel-config-3.19.patch"
         "debian-systemstart.sh"
         "debian-zram.sh"
+        "bash.bashrc.template"
         )
 
 md5sums=(
@@ -111,8 +112,9 @@ md5sums=(
          'SKIP'
          '95560f6b44bf10f75a7515dae9c79dd5' # rpi2-3.19.config
          '285be432ee3a5a66086ba56bb18d7266' # rpi-kernel-config-3.19.patch
-         '664c0e6d1c31555cb16440cc5d0ed8c1' # debian-systemstart.sh
+         '606f94b9899f58ba579abdab866d5d8d' # debian-systemstart.sh
          '3793439a6f13115f2251e782646ee8e6' # debian-zram.sh
+         'fd399cf39e895c78a934e49bd2005b9e' # bash.bashrc.template
          )
 sha1sums=(
          'SKIP'
@@ -123,8 +125,9 @@ sha1sums=(
          'SKIP'
          'c0c30c8d9c53cb6694d22c0aa92d7c28f1987463' # rpi2-3.19.config
          'eb2ebe665a77a483acc379da165bb9fb6437e078' # rpi-kernel-config-3.19.patch
-         '7329163a03497e25fc63556ecdbd3d28cbd28371' # debian-systemstart.sh
+         'fbc1261db869be59734ae59457fcf126fb4a3ea7' # debian-systemstart.sh
          'ab5a6304d3e3ca5b315cff0bfa25558e38520100' # debian-zram.sh
+         'f34682a64ca0b720a89d9e7e919e9a9f63f5bf1c' # bash.bashrc.template
          )
 
 pkgver() {
@@ -270,8 +273,8 @@ kali_rootfs_debootstrap() {
     fi
 
     echo "[DBG] debootstrap state 2.5"
-    sudo rm "${DN_ROOTFS_DEBIAN}/etc/hostname"
-    sudo rm ${DN_ROOTFS_DEBIAN}/etc/ssh/ssh_host_*
+    sudo rm -f "${DN_ROOTFS_DEBIAN}/etc/hostname"
+    sudo rm -f ${DN_ROOTFS_DEBIAN}/etc/ssh/ssh_host_*
 
     # Create sources.list
     cat << EOF > "${PREFIX_TMP}-aptlst1"
@@ -287,8 +290,7 @@ EOF
     fi
 
     # Set hostname
-
-    echo "echo kali > '${DN_ROOTFS_DEBIAN}/etc/hostname'" | sudo sh
+    #echo "echo kali > '${DN_ROOTFS_DEBIAN}/etc/hostname'" | sudo sh
 
     # So X doesn't complain, we add kali to hosts
     cat << EOF > "${PREFIX_TMP}-host"
@@ -1059,6 +1061,33 @@ blacklist snd_soc_wm8804
 EOF
     echo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/modprobe.d/rpi2.conf"
     sudo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/modprobe.d/rpi2.conf"
+    if [ ! "$?" = "0" ]; then
+        echo "Error in move file $T"
+        exit 1
+    fi
+
+    # Set tmux to show the cursor
+    T="${PREFIX_TMP}-tmux.conf"
+    if [ -f "${DN_ROOTFS_DEBIAN}/etc/tmux.conf" ]; then
+        cp "${DN_ROOTFS_DEBIAN}/etc/tmux.conf" "${T}"
+    fi
+    cat << EOF >> "${T}"
+setw -ga terminal-overrides ',*:Cc=\E[?120;%p1%s;240c:Cr=\E[?120;0;240c:civis=\E[?25l:cnorm=\E[?25h:cvvis=\E[?25h,'
+set -g status-bg black
+set -g status-fg white
+EOF
+    sudo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/tmux.conf"
+    if [ ! "$?" = "0" ]; then
+        echo "Error in move file $T"
+        exit 1
+    fi
+
+    T="${PREFIX_TMP}-bashrc"
+    if [ -f "${DN_ROOTFS_DEBIAN}/etc/bash.bashrc" ]; then
+        cp "${DN_ROOTFS_DEBIAN}/etc/bash.bashrc" "${T}"
+    fi
+    cat "${srcdir}/bash.bashrc.template" >> "${T}"
+    sudo mv "${T}" "${DN_ROOTFS_DEBIAN}/etc/bash.bashrc"
     if [ ! "$?" = "0" ]; then
         echo "Error in move file $T"
         exit 1
