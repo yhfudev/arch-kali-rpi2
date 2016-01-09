@@ -221,11 +221,11 @@ kali_rootfs_debootstrap() {
     # build kali rootfs
     cd "$srcdir"
 
-    if [ ! -f /usr/share/debootstrap/scripts/kali ]; then
-        sudo ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/kali
+    if [ ! -f /usr/share/debootstrap/scripts/kali-current ]; then
+        sudo ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/kali-current
     fi
-    if [ ! -f /usr/share/debootstrap/scripts/kali ]; then
-        echo "Error: no deebootstrap for kali"
+    if [ ! -f /usr/share/debootstrap/scripts/kali-current ]; then
+        echo "Error: no debootstrap for kali"
         exit 1
     fi
 
@@ -238,14 +238,14 @@ kali_rootfs_debootstrap() {
     sudo mount -o bind "${DN_APT_CACHE}" "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives-real/"
     aptcache_link2srcdst "../archives-real/" "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives"
 
-    echo "[DBG] debootstrap state 1"
+    echo "[DBG] debootstrap stage 1"
     if [ -f "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE1" ]; then
-        echo "[DBG] SKIP debootstrap state 1"
+        echo "[DBG] SKIP debootstrap stage 1"
 
     else
         # create the rootfs - not much to modify here, except maybe the hostname.
-        echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
-        sudo debootstrap --foreign --no-check-gpg --include=ca-certificates,ssh,vim,locales,ntpdate,initramfs-tools --arch ${MACHINEARCH} kali "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
+        echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali-current '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
+        sudo debootstrap --foreign --no-check-gpg --include=ca-certificates,ssh,vim,locales,ntpdate,initramfs-tools --arch ${MACHINEARCH} kali-current "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
         if [ "$?" = "0" ]; then
             touch "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE1"
         else
@@ -258,9 +258,9 @@ kali_rootfs_debootstrap() {
         sudo cp `which qemu-arm-static` "${DN_ROOTFS_DEBIAN}/usr/bin/"
     fi
 
-    echo "[DBG] debootstrap state 2"
+    echo "[DBG] debootstrap stage 2"
     if [ -f "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE2" ]; then
-        echo "[DBG] SKIP debootstrap state 2"
+        echo "[DBG] SKIP debootstrap stage 2"
 
     else
         sudo chroot "${DN_ROOTFS_DEBIAN}" /usr/bin/env -i LANG=C /debootstrap/debootstrap --second-stage
@@ -272,14 +272,14 @@ kali_rootfs_debootstrap() {
         fi
     fi
 
-    echo "[DBG] debootstrap state 2.5"
+    echo "[DBG] debootstrap stage 2.5"
     sudo rm -f "${DN_ROOTFS_DEBIAN}/etc/hostname"
     sudo rm -f ${DN_ROOTFS_DEBIAN}/etc/ssh/ssh_host_*
 
     # Create sources.list
     cat << EOF > "${PREFIX_TMP}-aptlst1"
-deb http://${INSTALL_MIRROR}/kali kali main contrib non-free
-deb http://${INSTALL_SECURITY}/kali-security kali/updates main contrib non-free
+deb http://${INSTALL_MIRROR}/kali kali-current main contrib non-free
+deb http://${INSTALL_SECURITY}/kali-security kali-current/updates main contrib non-free
 EOF
     chmod 644 "${PREFIX_TMP}-aptlst1"
     sudo chown root:root "${PREFIX_TMP}-aptlst1"
@@ -371,9 +371,9 @@ EOF
     # Stop the boot-sequence whinging about /tmp being read-only before /tmp is mounted:
     touch "${DN_ROOTFS_DEBIAN}/tmp/.tmpfs"
 
-    echo "[DBG] debootstrap state 3"
+    echo "[DBG] debootstrap stage 3"
     if [ -f "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE3" ]; then
-        echo "[DBG] SKIP debootstrap state 3"
+        echo "[DBG] SKIP debootstrap stage 3"
 
     else
         #sudo mkdir -p "${DN_ROOTFS_DEBIAN}/sys"
@@ -479,11 +479,11 @@ EOF
         find "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives/" | while read i ; do sudo rm -rf $i; done
 
         cat << EOF > "${PREFIX_TMP}-aptlst"
-deb http://http.kali.org/kali kali main non-free contrib
-deb http://security.kali.org/kali-security kali/updates main contrib non-free
+deb http://${INSTALL_MIRROR}/kali kali-current main contrib non-free
+deb http://${INSTALL_SECURITY}/kali-security kali-current/updates main contrib non-free
 
-deb-src http://http.kali.org/kali kali main non-free contrib
-deb-src http://security.kali.org/kali-security kali/updates main contrib non-free
+deb-src http://${INSTALL_MIRROR}/kali kali-current main non-free contrib
+deb-src http://${INSTALL_SECURITY}/kali-security kali-current/updates main contrib non-free
 EOF
         chmod 644 "${PREFIX_TMP}-aptlst"
         sudo chown root:root "${PREFIX_TMP}-aptlst"
@@ -614,6 +614,8 @@ else
     sudo mkdir -p "${DN_BOOT_4KERNEL}"
     sudo chown -R ${USER} "${DN_BOOT_4KERNEL}"
     sudo cp -rf ${srcdir}/firmware-raspberrypi-git/boot/* ${DN_BOOT_4KERNEL}
+    sudo mkdir -p "${DN_ROOTFS_KERNEL}/opt/"
+    sudo cp -rf ${srcdir}/firmware-raspberrypi-git/opt/vc ${DN_ROOTFS_KERNEL}/opt/
 
     sudo cp arch/arm/boot/zImage ${DN_BOOT_4KERNEL}/${FN_RPI_KERNEL}
 
@@ -712,6 +714,9 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
     bootp="/dev/mapper/${LOOPNAME}p1"
     rootp="/dev/mapper/${LOOPNAME}p2"
 
+    echo "waits for 8 seconds for $rootp to be accessible ..."
+    sleep 8
+
     if [ -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" ]; then
         echo "[DBG] SKIP rsync rootfs"
 
@@ -731,7 +736,7 @@ if [[ ! -f "${PREFIX_TMP}-FLG_FORMAT_IMAGE" || ! -f "${PREFIX_TMP}-FLG_RSYNC_ROO
         fi
 
         # enable writeback. this step should do before you use data=writeback in the fstab!
-        tune2fs -o journal_data_writeback
+        tune2fs -o journal_data_writeback $rootp
 
         #dumpe2fs $rootp
         touch "${PREFIX_TMP}-FLG_FORMAT_IMAGE"
@@ -827,15 +832,19 @@ fi
                     echo "Generating sha1sum for ${FN_IMAGE}.xz"
                     (cd $(dirname ${FN_IMAGE}.xz) && sha1sum $(basename ${FN_IMAGE}.xz) > ${FN_IMAGE}.xz.sha1sum)
                     FLG_COMPRESSED=1
+                else
+                    rm -f ${FN_IMAGE}.xz
                 fi
             fi
         fi
     fi
     if [ "${FLG_COMPRESSED}" = "0" ]; then
-        gzip -9 -k ${FN_IMAGE}
+        gzip -9 ${FN_IMAGE}
         if [ "$?" = "0" ]; then
             (cd $(dirname ${FN_IMAGE}.gz) && sha1sum $(basename ${FN_IMAGE}.gz) > ${FN_IMAGE}.gz.sha1sum)
             FLG_COMPRESSED=1
+        else
+            rm -f ${FN_IMAGE}.gz
         fi
     fi
 
@@ -934,6 +943,8 @@ prepare_rpi2_kernel () {
         git submodule init
         git submodule update
         git pull --all
+        # for rpi 1
+        # git checkout rpi-3.12.y
     fi
 
     patch -p1 --no-backup-if-mismatch < ${srcdir}/${PATCH_MAC80211}
@@ -961,7 +972,7 @@ prepare_rpi2_kernel () {
     #cp "${srcdir}/firmware-raspberrypi-git/extra/Module.symvers" . # copy Module.sysmvers to the linux directory
 }
 
-prepare_rpi2_rootfs () {
+setup_rootfs_4device_rpi2 () {
     # addtional setup for the rootfs
 
     echo "Enable the Serial console"
@@ -1034,6 +1045,16 @@ fi
 
 #uncomment to overclock the arm. 700 MHz is the default.
 #arm_freq=800
+
+# Turn on i2c (bus #1) for Raspberry Pi 2 and Pi 1 Model A, B (rev 2) and B+.
+# If you have a Raspberry Pi Model B rev 1 with the i2c bus 0 instead, change this line to dtparam=i2c0=on
+# Raspberry Pi 1
+#dtparam=i2c1=on
+# Raspberry Pi 2
+#dtparam=i2c_arm=on
+
+#to turn on SPI
+#dtparam=spi=on
 EOF
     echo mv "${T}" "${DN_BOOT_4KERNEL}/config.txt"
     sudo mv "${T}" "${DN_BOOT_4KERNEL}/config.txt"
@@ -1275,7 +1296,7 @@ prepare() {
     cd ${srcdir}
     # create rootfs
     kali_rootfs_debootstrap
-    prepare_rpi2_rootfs
+    setup_rootfs_4device_rpi2
     echo "Build rootfs DONE!"
 }
 
