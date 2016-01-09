@@ -245,7 +245,7 @@ kali_rootfs_debootstrap() {
     else
         # create the rootfs - not much to modify here, except maybe the hostname.
         echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali-current '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
-        sudo debootstrap --foreign --no-check-gpg --include=ca-certificates,ssh,vim,locales,ntpdate,initramfs-tools --arch ${MACHINEARCH} kali-current "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
+        sudo debootstrap --foreign --no-check-gpg --include=ca-certificates,ssh,vim,locales,ntpdate,initramfs-tools,wget,apt-utils,sudo --arch ${MACHINEARCH} kali-current "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
         if [ "$?" = "0" ]; then
             touch "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE1"
         else
@@ -957,10 +957,12 @@ prepare_rpi2_kernel () {
     #make mrproper
     make ${MAKE_CONFIG} # generate .config
     cp ${srcdir}/${CONFIG_KERNEL} .config # or use ours
-    patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
-    if [ ! "$?" = "0" ]; then
-        echo "error in patch ${PATCH_CONFIG_KERNEL}"
-        exit 1
+    if [ -f "${srcdir}/${PATCH_CONFIG_KERNEL}" ]; then
+        patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
+        if [ ! "$?" = "0" ]; then
+            echo "error in patch ${PATCH_CONFIG_KERNEL}"
+            exit 1
+        fi
     fi
 
     # config ZRAM
@@ -1244,6 +1246,9 @@ check_kali_image() {
     #partprobe "${DEV_LOOP}" # to get /dev/loop0p1 ...
     bootp="/dev/mapper/${LOOPNAME}p1"
     rootp="/dev/mapper/${LOOPNAME}p2"
+
+    echo "waits for 8 seconds for $rootp to be accessible ..."
+    sleep 8
 
     # Create the dirs for the partitions and mount them
     DN_ROOT="${srcdir}/mntrootfs-${MACHINEARCH}-${pkgname}-checker"
