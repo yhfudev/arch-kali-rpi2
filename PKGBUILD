@@ -1,5 +1,12 @@
 # Maintainer: Yunhui Fu <yhfudev at gmail dot com>
 
+
+# How To compile a custom Linux kernel for your ARM device
+# https://github.com/umiddelb/armhf/wiki/How-To-compile-a-custom-Linux-kernel-for-your-ARM-device
+
+# kali for rpi2
+# https://github.com/offensive-security/kali-arm-build-scripts/blob/master/rpi2.sh
+
 pkgname=kali-rpi2-image
 pkgver=1.1.0
 pkgrel=1
@@ -8,14 +15,10 @@ arch=('i686' 'x86_64' 'arm')
 url="https://github.com/yhfudev/arch-kali-rpi2.git"
 license=('GPL')
 
-optdepends=(
-    'pixz'
-    'bmap-tools'
-    'bsdtar'
-    )
+#optdepends=()
 
 makedepends=(
-    'git' 'bc' 'gcc-libs' 'bash' 'sudo'
+    'git' 'bc' 'gcc-libs' 'bash' 'sudo' 'gawk' 'sudo'
     'ncurses' 'lzop' 'uboot-tools' # for kernel
     'qemu' 'qemu-user-static-exp' 'binfmt-support' # cross compile and chroot
     'debootstrap' # to create debian rootfs
@@ -24,6 +27,9 @@ makedepends=(
     #'lib32-libstdc++5' 'lib32-zlib' # for 32 bit compiler
     'base-devel' 'abs' 'fakeroot'
     # 'kernel-package' # debian packages, include make-kpkg
+    'pixz'
+    'bmap-tools'
+    'bsdtar'
     )
 #install="$pkgname.install"
 #PKGEXT=.pkg.tar.xz
@@ -34,16 +40,20 @@ conflicts=('kali-rpi2')
 if [ 0 = 1 ]; then
 # config for Raspberry Pi 1
 ARCHITECTURE="armel"
-PATCH_MAC80211="kali-arm-build-scripts-git/patches/kali-wifi-injection-3.18.patch"
-CONFIG_KERNEL="kali-arm-build-scripts-git/kernel-configs/rpi-3.12.config"
-PATCH_CONFIG_KERNEL="kali-arm-build-scripts-git/patches/rpi-kernel-config.patch"
+PATCH_MAC80211="kali-arm-build-scripts-git/patches/kali-wifi-injection-4.1.patch"
+PATCH_MAC80211="kali-wifi-injection-4.1.patch"
+CONFIG_KERNEL="kali-arm-build-scripts-git/kernel-configs/rpi-4.1.config"
+CONFIG_KERNEL="rpi-4.1.config"
+PATCH_CONFIG_KERNEL="none-rpi-kernel-config-3.19.patch"
 FN_RPI_KERNEL=kernel.img
 MAKE_CONFIG=bcmrpi_defconfig
 else
 # config for Raspberry Pi 2
 ARCHITECTURE="armhf"
-PATCH_MAC80211="kali-arm-build-scripts-git/patches/kali-wifi-injection-3.18.patch"
-CONFIG_KERNEL="rpi2-3.19.config"
+PATCH_MAC80211="kali-arm-build-scripts-git/patches/kali-wifi-injection-4.1.patch"
+PATCH_MAC80211="kali-wifi-injection-4.1.patch"
+CONFIG_KERNEL="kali-arm-build-scripts-git/kernel-configs/rpi2-4.1.config"
+CONFIG_KERNEL="rpi2-4.1.config"
 PATCH_CONFIG_KERNEL="rpi-kernel-config-3.19.patch"
 FN_RPI_KERNEL=kernel7.img
 MAKE_CONFIG=bcm2709_defconfig
@@ -57,14 +67,15 @@ fi
 # mind that not all packages work on ARM! If you specify one of those, the
 # script will throw an error, but will still continue on, and create an unusable
 # image, keep that in mind.
-PACKAGES_ARM="abootimg cgpt fake-hwclock ntpdate vboot-utils vboot-kernel-utils uboot-mkimage"
-PACKAGES_BASE="kali-menu kali-defaults initramfs-tools sudo parted e2fsprogs usbutils nfs-common lsb-release ntfs-3g usbmount hdparm tmux"
-PACKAGES_DESKTOP="xfce4 network-manager network-manager-gnome xserver-xorg-video-fbdev"
-PACKAGES_TOOLS="passing-the-hash winexe aircrack-ng hydra john sqlmap wireshark libnfc-bin mfoc nmap ethtool"
-PACKAGES_SERVICES="openssh-server apache2"
-PACKAGES_EXTRAS="iceweasel wpasupplicant"
+PACKAGES_ARM="abootimg cgpt fake-hwclock ntp ntpdate vboot-utils vboot-kernel-utils u-boot-tools"
+PACKAGES_BASE="initramfs-tools sudo gawk grep uuid-runtime screen psmisc rfkill parted e2fsprogs usbutils nfs-common lsb-release ntfs-3g usbmount hdparm tmux sshfs curl"
+PACKAGES_TOOLS="passing-the-hash winexe aircrack-ng hydra john sqlmap libnfc-bin mfoc nmap ethtool macchanger wifite"
+PACKAGES_SERVICES="openssh-server apache2 rng-tools"
+PACKAGES_EXTRAS="iw usbutils wpasupplicant hostapd dnsmasq reaver i2c-tools device-tree-compiler gpsd gpsd-clients kismet mdk3 cowpatty pyrit wpaclean sslstrip crunch etterlog ettercap hashcat"
+#PACKAGES_DESKTOP="kali-menu kali-defaults xfce4 network-manager network-manager-gnome xserver-xorg-video-fbdev"
+#PACKAGES_TOOLS_GUI="wireshark iceweasel"
 #PACKAGES_ADDON="fruitywifi xfce4-goodies kali-linux-full"
-export PACKAGES="${PACKAGES_ARM} ${PACKAGES_BASE} ${PACKAGES_DESKTOP} ${PACKAGES_TOOLS} ${PACKAGES_SERVICES} ${PACKAGES_EXTRAS} ${PACKAGES_ADDON}"
+export PACKAGES="${PACKAGES_ARM} ${PACKAGES_BASE} ${PACKAGES_TOOLS} ${PACKAGES_SERVICES} ${PACKAGES_EXTRAS} ${PACKAGES_DESKTOP} ${PACKAGES_TOOLS_GUI} ${PACKAGES_ADDON}"
 
 # the image container size
 IMGCONTAINER_SIZE=3000 # Size of image in megabytes
@@ -84,19 +95,24 @@ DISKLABEL_ROOTFS=rootfs
 # the /boot fs label
 DISKLABEL_BOOTFS=BOOTFS
 
-GITCOMMIT_LINUX=5e3fb8358a4918c1c6c3ad0706da28c90ef7f737
+# 4.4
+GITCOMMIT_LINUX=81b502c6cb1877548c7a9e3774101c8f17b1c3ca
+# rpi-4.1.y
+GITCOMMIT_LINUX=ff45bc0e8917c77461b2901e2743e6339bb70413
+
 DNSRC_LINUX=linux-${GITCOMMIT_LINUX}
 USE_GIT_REPO=0
 #DNSRC_LINUX=linux-raspberrypi-git
 
 source=(
-        "kali-arm-build-scripts-git::git+https://github.com/offensive-security/kali-arm-build-scripts.git"
+        "kali-wifi-injection-4.1.patch" #"kali-arm-build-scripts-git::git+https://github.com/offensive-security/kali-arm-build-scripts.git"
         "https://github.com/raspberrypi/linux/archive/${GITCOMMIT_LINUX}.tar.gz" # "${DNSRC_LINUX}::git+https://github.com/raspberrypi/linux.git"
         "tools-raspberrypi-git::git+https://github.com/raspberrypi/tools.git"
         "firmware-raspberrypi-git::git+https://github.com/raspberrypi/firmware.git"
         "firmware-linux-git::git+https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git"
         "rpiwiggle-git::git+https://github.com/dweeber/rpiwiggle/"
-        "rpi2-3.19.config"
+        "rpi-4.1.config"
+        "rpi2-4.1.config"
         "rpi-kernel-config-3.19.patch"
         "debian-systemstart.sh"
         "debian-zram.sh"
@@ -104,38 +120,40 @@ source=(
         )
 
 md5sums=(
-         'SKIP'
-         '88a3ab7a0bfec9f470f029468fe3a2d6' # linux-5e3fb8358a4918c1c6c3ad0706da28c90ef7f737
-         'SKIP'
-         'SKIP'
+         'SKIP' # kali-wifi-injection-4.1.patch
+         'SKIP' # linux-81b502c6cb1877548c7a9e3774101c8f17b1c3ca
          'SKIP'
          'SKIP'
-         '95560f6b44bf10f75a7515dae9c79dd5' # rpi2-3.19.config
+         'SKIP'
+         'SKIP'
+         'SKIP' # rpi-4.1.config
+         'SKIP' # rpi2-4.1.config
          '285be432ee3a5a66086ba56bb18d7266' # rpi-kernel-config-3.19.patch
          '606f94b9899f58ba579abdab866d5d8d' # debian-systemstart.sh
          '3793439a6f13115f2251e782646ee8e6' # debian-zram.sh
          '5d45a3ee5562bec9dd4eebdde9834964' # bash.bashrc.template
          )
 sha1sums=(
-         'SKIP'
-         'fd7b0ed1b1cdf1d723972e620d14ce58c05500d1' # linux-5e3fb8358a4918c1c6c3ad0706da28c90ef7f737
-         'SKIP'
-         'SKIP'
+         'SKIP' # kali-wifi-injection-4.1.patch
+         'SKIP' # linux-81b502c6cb1877548c7a9e3774101c8f17b1c3ca
          'SKIP'
          'SKIP'
-         'c0c30c8d9c53cb6694d22c0aa92d7c28f1987463' # rpi2-3.19.config
+         'SKIP'
+         'SKIP'
+         'SKIP' # rpi-4.1.config
+         'SKIP' # rpi2-4.1.config
          'eb2ebe665a77a483acc379da165bb9fb6437e078' # rpi-kernel-config-3.19.patch
          'fbc1261db869be59734ae59457fcf126fb4a3ea7' # debian-systemstart.sh
          'ab5a6304d3e3ca5b315cff0bfa25558e38520100' # debian-zram.sh
          'cb7f7b0b0a5feb0c059010eb9f6ecfab8580035a' # bash.bashrc.template
          )
 
-pkgver() {
-    cd "${srcdir}/kali-arm-build-scripts-git"
-    local ver="$(git show | grep commit | awk '{print $2}'  )"
-    #printf "r%s" "${ver//[[:alpha:]]}"
-    echo ${ver:0:7}
-}
+#pkgver() {
+#    cd "${srcdir}/firmware-raspberrypi-git"
+#    local ver="$(git show | grep commit | awk '{print $2}'  )"
+#    #printf "r%s" "${ver//[[:alpha:]]}"
+#    echo ${ver:0:7}
+#}
 
 PREFIX_TMP="${srcdir}/tmptmp-${pkgname}"
 
@@ -221,10 +239,10 @@ kali_rootfs_debootstrap() {
     # build kali rootfs
     cd "$srcdir"
 
-    if [ ! -f /usr/share/debootstrap/scripts/kali-current ]; then
-        sudo ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/kali-current
+    if [ ! -f /usr/share/debootstrap/scripts/kali-rolling ]; then
+        sudo ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/kali-rolling
     fi
-    if [ ! -f /usr/share/debootstrap/scripts/kali-current ]; then
+    if [ ! -f /usr/share/debootstrap/scripts/kali-rolling ]; then
         echo "Error: no debootstrap for kali"
         exit 1
     fi
@@ -244,8 +262,8 @@ kali_rootfs_debootstrap() {
 
     else
         # create the rootfs - not much to modify here, except maybe the hostname.
-        echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali-current '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
-        sudo debootstrap --foreign --no-check-gpg --include=ca-certificates,ssh,vim,locales,ntpdate,initramfs-tools,wget,apt-utils,sudo --arch ${MACHINEARCH} kali-current "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
+        echo "[DBG] debootstrap --foreign --arch ${MACHINEARCH} kali-rolling '${DN_ROOTFS_DEBIAN}'  http://${INSTALL_MIRROR}/kali"
+        sudo debootstrap --foreign --no-check-gpg --include=ca-certificates,ssh,vim,locales,ntpdate,initramfs-tools,wget,apt-utils,sudo --arch ${MACHINEARCH} kali-rolling "${DN_ROOTFS_DEBIAN}" "http://${INSTALL_MIRROR}/kali"
         if [ "$?" = "0" ]; then
             touch "${PREFIX_TMP}-FLG_KALI_ROOTFS_STAGE1"
         else
@@ -278,8 +296,8 @@ kali_rootfs_debootstrap() {
 
     # Create sources.list
     cat << EOF > "${PREFIX_TMP}-aptlst1"
-deb http://${INSTALL_MIRROR}/kali kali-current main contrib non-free
-deb http://${INSTALL_SECURITY}/kali-security kali-current/updates main contrib non-free
+deb http://${INSTALL_MIRROR}/kali kali-rolling main contrib non-free
+deb http://${INSTALL_SECURITY}/kali-security kali-rolling/updates main contrib non-free
 EOF
     chmod 644 "${PREFIX_TMP}-aptlst1"
     sudo chown root:root "${PREFIX_TMP}-aptlst1"
@@ -479,11 +497,11 @@ EOF
         find "${DN_ROOTFS_DEBIAN}/var/cache/apt/archives/" | while read i ; do sudo rm -rf $i; done
 
         cat << EOF > "${PREFIX_TMP}-aptlst"
-deb http://${INSTALL_MIRROR}/kali kali-current main contrib non-free
-deb http://${INSTALL_SECURITY}/kali-security kali-current/updates main contrib non-free
+deb http://${INSTALL_MIRROR}/kali kali-rolling main contrib non-free
+deb http://${INSTALL_SECURITY}/kali-security kali-rolling/updates main contrib non-free
 
-deb-src http://${INSTALL_MIRROR}/kali kali-current main non-free contrib
-deb-src http://${INSTALL_SECURITY}/kali-security kali-current/updates main contrib non-free
+deb-src http://${INSTALL_MIRROR}/kali kali-rolling main non-free contrib
+deb-src http://${INSTALL_SECURITY}/kali-security kali-rolling/updates main contrib non-free
 EOF
         chmod 644 "${PREFIX_TMP}-aptlst"
         sudo chown root:root "${PREFIX_TMP}-aptlst"
@@ -595,6 +613,7 @@ kali_rootfs_linuxkernel() {
         fi
     fi
 
+    # install firmware
     my0_check_valid_path "${DN_ROOTFS_KERNEL}"
     sudo mkdir -p "${DN_ROOTFS_KERNEL}/lib/"
     sudo rm -rf ${DN_ROOTFS_KERNEL}/lib/firmware
@@ -602,6 +621,10 @@ kali_rootfs_linuxkernel() {
     sudo cp -r ${srcdir}/firmware-linux-git ${DN_ROOTFS_KERNEL}/lib/firmware
     sudo rm -rf ${DN_ROOTFS_KERNEL}/lib/firmware/.git
 
+    make INSTALL_MOD_PATH=${DN_ROOTFS_KERNEL} firmware_install
+    make modules_prepare
+
+    # install kernel
 if [ 1 = 0 ]; then
     make uImage
     make dtbs
@@ -617,7 +640,11 @@ else
     sudo mkdir -p "${DN_ROOTFS_KERNEL}/opt/"
     sudo cp -rf ${srcdir}/firmware-raspberrypi-git/opt/vc ${DN_ROOTFS_KERNEL}/opt/
 
-    sudo cp arch/arm/boot/zImage ${DN_BOOT_4KERNEL}/${FN_RPI_KERNEL}
+    sudo mkdir -p ${DN_BOOT_4KERNEL}/overlays/
+    sudo cp arch/arm/boot/dts/bcm*.dtb ${DN_BOOT_4KERNEL}
+    sudo cp arch/arm/boot/dts/overlays/*overlay*.dtb ${DN_BOOT_4KERNEL}/overlays/
+
+    sudo ${srcdir}/tools-raspberrypi-git/mkimage/mkknlimg --dtok arch/arm/boot/zImage ${DN_BOOT_4KERNEL}/${FN_RPI_KERNEL}
 
     T="${PREFIX_TMP}-cmdline.txt"
     cat << EOF > "${T}"
@@ -628,6 +655,15 @@ EOF
         echo "Error in move file $T"
         exit 1
     fi
+
+    cat << EOF >> "${DN_BOOT_4KERNEL}/cmdline.txt"
+kernel=${FN_RPI_KERNEL}
+EOF
+
+    # Firmware needed for rpi3 wifi/bt
+    sudo mkdir -p ${DN_ROOTFS_KERNEL}/lib/firmware/brcm/
+    sudo cp ${srcdir}/brcmfmac43430-sdio.txt ${DN_ROOTFS_KERNEL}/lib/firmware/brcm/
+    sudo cp ${srcdir}/brcmfmac43430-sdio.bin ${DN_ROOTFS_KERNEL}/lib/firmware/brcm/
 
     # rpi-wiggle
     sudo mkdir -p ${DN_ROOTFS_KERNEL}/scripts
@@ -688,8 +724,8 @@ kali_create_image() {
         fi
         #parted ${FN_IMAGE} --script -- mkpart primary fat32  0 64
         #parted ${FN_IMAGE} --script -- mkpart primary ext4  64 -1
-        parted ${FN_IMAGE} --script -- mkpart primary fat32   2048s 264191s
-        parted ${FN_IMAGE} --script -- mkpart primary ext4  264192s    100%
+        parted ${FN_IMAGE} --script -- mkpart primary fat32   3072s 266239s
+        parted ${FN_IMAGE} --script -- mkpart primary ext4  266240s    100%
 
         #install_hardkernel_uboot ${FN_IMAGE}
 
@@ -947,16 +983,21 @@ prepare_rpi2_kernel () {
         # git checkout rpi-3.12.y
     fi
 
-    patch -p1 --no-backup-if-mismatch < ${srcdir}/${PATCH_MAC80211}
-    if [ ! "$?" = "0" ]; then
-        echo "error in patch ${PATCH_MAC80211}"
-        exit 1
+    if [ -f ${srcdir}/${PATCH_MAC80211} ]; then
+        patch -p1 --no-backup-if-mismatch < ${srcdir}/${PATCH_MAC80211}
+        if [ ! "$?" = "0" ]; then
+            echo "error in patch ${PATCH_MAC80211}"
+            exit 1
+        fi
     fi
     touch .scmversion
 
+    # www.raspberrypi.org/documentation/linux/kernel/building.md
+    KERNEL=kernel7
     #make mrproper
     make ${MAKE_CONFIG} # generate .config
     cp ${srcdir}/${CONFIG_KERNEL} .config # or use ours
+
     if [ -f "${srcdir}/${PATCH_CONFIG_KERNEL}" ]; then
         patch -p0 --no-backup-if-mismatch < ${srcdir}/${PATCH_CONFIG_KERNEL}
         if [ ! "$?" = "0" ]; then

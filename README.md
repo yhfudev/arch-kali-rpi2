@@ -34,6 +34,29 @@ To install the image file to your SD card:
 
     sudo bmaptool copy kali-rpi2-image-1.1.0-armhf.img.xz /dev/mmcblk0
 
+### Backup your SD card
+
+You may backup your SD card content after you changed it. After you insert the SD card to your Linux box:
+
+    umount /run/media/${USER}/BOOTFS/
+    mount /dev/mmcblk0p1 /run/media/${USER}/rootfs/boot/firmware/
+    cd /run/media/${USER}/rootfs/
+    ./backup.sh
+
+Restore the backuped files:
+
+    # delete the second partition and re-create it from the rest of device
+
+    # format the SD card
+    mkfs.vfat -n BOOTFS /dev/mmcblk0p1
+    mkfs.ext4 -L rootfs /dev/mmcblk0p2
+    # mount
+    mount /dev/mmcblk0p2 rootfs
+    mkdir -p rootfs/boot/firmware
+    mount /dev/mmcblk0p1 rootfs/boot/firmware
+    cd rootfs
+    tar -xvf ~/rpi2-kali-base-20160126.tgz
+
 Config
 ------
 You may be also interest in config or install other packages after booting the Kali:
